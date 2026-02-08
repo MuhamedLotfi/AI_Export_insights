@@ -1,0 +1,2 @@
+.\venv\Scripts\python -m uvicorn backend.main:app --reload
+flutter run -d chrome

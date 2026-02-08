@@ -1,0 +1,94 @@
+{
+    "data": [
+        {
+            "id": 1,
+            "name": "Premium Widget A",
+            "quantity": 500,
+            "min_stock": 100,
+            "max_stock": 1000,
+            "warehouse": "Main",
+            "status": "OK"
+        },
+        {
+            "id": 2,
+            "name": "Standard Widget B",
+            "quantity": 85,
+            "min_stock": 100,
+            "max_stock": 800,
+            "warehouse": "Main",
+            "status": "Low"
+        },
+        {
+            "id": 3,
+            "name": "Deluxe Gadget X",
+            "quantity": 320,
+            "min_stock": 50,
+            "max_stock": 500,
+            "warehouse": "East",
+            "status": "OK"
+        },
+        {
+            "id": 4,
+            "name": "Basic Component C",
+            "quantity": 1250,
+            "min_stock": 200,
+            "max_stock": 2000,
+            "warehouse": "Main",
+            "status": "OK"
+        },
+        {
+            "id": 5,
+            "name": "Pro Device Y",
+            "quantity": 45,
+            "min_stock": 50,
+            "max_stock": 300,
+            "warehouse": "West",
+            "status": "Low"
+        },
+        {
+            "id": 6,
+            "name": "Elite Module Z",
+            "quantity": 180,
+            "min_stock": 75,
+            "max_stock": 400,
+            "warehouse": "East",
+            "status": "OK"
+        },
+        {
+            "id": 7,
+            "name": "Smart Sensor S",
+            "quantity": 620,
+            "min_stock": 100,
+            "max_stock": 800,
+            "warehouse": "Main",
+            "status": "OK"
+        },
+        {
+            "id": 8,
+            "name": "Compact Unit U",
+            "quantity": 95,
+            "min_stock": 80,
+            "max_stock": 500,
+            "warehouse": "West",
+            "status": "OK"
+        },
+        {
+            "id": 9,
+            "name": "Advanced Tool T",
+            "quantity": 230,
+            "min_stock": 50,
+            "max_stock": 400,
+            "warehouse": "East",
+            "status": "OK"
+        },
+        {
+            "id": 10,
+            "name": "Portable Kit K",
+            "quantity": 410,
+            "min_stock": 100,
+            "max_stock": 600,
+            "warehouse": "Main",
+            "status": "OK"
+        }
+    ]
+}

@@ -1,0 +1,72 @@
+{
+  "data": [
+    {
+      "id": 4,
+      "user_id": 1,
+      "agent_code": "accounting",
+      "is_active": true,
+      "granted_by": 1,
+      "granted_at": "2026-01-01T00:00:00"
+    },
+    {
+      "id": 5,
+      "user_id": 2,
+      "agent_code": "sales",
+      "is_active": true,
+      "granted_by": 1,
+      "granted_at": "2026-01-01T00:00:00"
+    },
+    {
+      "id": 6,
+      "user_id": 2,
+      "agent_code": "inventory",
+      "is_active": true,
+      "granted_by": 1,
+      "granted_at": "2026-01-01T00:00:00"
+    },
+    {
+      "id": 7,
+      "user_id": 3,
+      "agent_code": "sales",
+      "is_active": true,
+      "granted_by": 1,
+      "granted_at": "2026-01-01T00:00:00"
+    },
+    {
+      "user_id": 1,
+      "agent_code": "sales",
+      "is_active": true,
+      "granted_by": 1,
+      "granted_at": "2026-02-01T22:37:20.792752",
+      "id": 8,
+      "created_at": "2026-02-01T22:37:20.792752"
+    },
+    {
+      "user_id": 1,
+      "agent_code": "inventory",
+      "is_active": true,
+      "granted_by": 1,
+      "granted_at": "2026-02-01T22:37:22.336118",
+      "id": 9,
+      "created_at": "2026-02-01T22:37:22.336118"
+    },
+    {
+      "user_id": 1,
+      "agent_code": "purchasing",
+      "is_active": true,
+      "granted_by": 1,
+      "granted_at": "2026-02-01T22:37:23.509598",
+      "id": 10,
+      "created_at": "2026-02-01T22:37:23.509598"
+    },
+    {
+      "user_id": 1,
+      "agent_code": "projects",
+      "is_active": true,
+      "granted_by": 1,
+      "granted_at": "2026-02-02T18:48:53.020206",
+      "id": 11,
+      "created_at": "2026-02-02T18:48:53.020206"
+    }
+  ]
+}

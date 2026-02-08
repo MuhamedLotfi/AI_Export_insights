@@ -1,0 +1,48 @@
+name: ai_export_insights
+description: AI Export Insights - Multi-Domain AI Agent Platform
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  get: ^4.6.6
+  
+  # HTTP & API
+  dio: ^5.4.0
+  
+  # Charts & Visualization
+  fl_chart: ^0.66.0
+  syncfusion_flutter_charts: ^26.1.38
+  
+  # Data Tables
+  data_table_2: ^2.5.12
+  
+  # UI Components
+  flutter_markdown: ^0.6.18
+  google_fonts: ^6.1.0
+  
+  # Storage
+  shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.0.0
+  
+  # Utilities
+  intl: ^0.18.1
+  visibility_detector: ^0.4.0+2
+  
+  # Icons
+  cupertino_icons: ^1.0.6
+  font_awesome_flutter: ^10.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

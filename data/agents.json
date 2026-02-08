@@ -1,0 +1,95 @@
+{
+    "data": [
+        {
+            "id": 1,
+            "code": "sales",
+            "name": "Sales Analytics Agent",
+            "description": "Analyzes sales data, revenue trends, and customer behavior",
+            "icon": "trending_up",
+            "capabilities": [
+                "sales trends",
+                "revenue analysis",
+                "top products",
+                "customer insights"
+            ],
+            "tables": [
+                "sales",
+                "items"
+            ],
+            "is_active": true
+        },
+        {
+            "id": 2,
+            "code": "inventory",
+            "name": "Inventory Management Agent",
+            "description": "Monitors stock levels, reorder points, and warehouse operations",
+            "icon": "inventory_2",
+            "capabilities": [
+                "stock levels",
+                "reorder points",
+                "inventory movement",
+                "warehouse status"
+            ],
+            "tables": [
+                "inventory",
+                "items"
+            ],
+            "is_active": true
+        },
+        {
+            "id": 3,
+            "code": "purchasing",
+            "name": "Purchasing Agent",
+            "description": "Manages vendor analysis, purchase orders, and procurement",
+            "icon": "shopping_cart",
+            "capabilities": [
+                "vendor performance",
+                "lead times",
+                "purchase orders",
+                "supplier analysis"
+            ],
+            "tables": [
+                "purchasing",
+                "vendors"
+            ],
+            "is_active": true
+        },
+        {
+            "id": 4,
+            "code": "accounting",
+            "name": "Accounting Agent",
+            "description": "Handles financial analysis, costs, margins, and profitability",
+            "icon": "account_balance",
+            "capabilities": [
+                "profit margins",
+                "cost analysis",
+                "financial summary",
+                "pricing strategy"
+            ],
+            "tables": [
+                "items",
+                "costs"
+            ],
+            "is_active": true
+        },
+        {
+            "id": 5,
+            "code": "projects",
+            "name": "Project Analytics Agent",
+            "description": "Tracks project performance, status, and profitability",
+            "icon": "assignment",
+            "capabilities": [
+                "project status",
+                "profitability",
+                "contract details",
+                "completion tracking"
+            ],
+            "tables": [
+                "project_59",
+                "sales",
+                "purchasing"
+            ],
+            "is_active": true
+        }
+    ]
+}

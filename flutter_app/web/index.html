@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="AI Export Insights - Multi-Domain AI Agent Platform">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- iOS/Mobile meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="AI Insights">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png" />
+
+  <title>AI Export Insights</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- This script adds the flutter initialization JS code -->
+  <script src="flutter.js" defer></script>
+</head>
+
+<body>
+  <script>
+    window.addEventListener('load', function (ev) {
+      // Check if using new build system (flutter build web) or dev server (flutter run)
+      if (typeof _flutter !== 'undefined' && _flutter.loader) {
+        // Try the new load() API first (Flutter 3.22+)
+        if (_flutter.buildConfig) {
+          _flutter.loader.load();
+        } else {
+          // Fallback to loadEntrypoint for flutter run -d chrome
+          _flutter.loader.loadEntrypoint({
+            serviceWorker: {
+              serviceWorkerVersion: "{{flutter_service_worker_version}}",
+            },
+            onEntrypointLoaded: function (engineInitializer) {
+              engineInitializer.initializeEngine().then(function (appRunner) {
+                appRunner.runApp();
+              });
+            }
+          });
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,84 @@
+{
+    "data": [
+        {
+            "id": 1,
+            "name": "Premium Widget A",
+            "category": "Electronics",
+            "cost_price": 85.00,
+            "sell_price": 126.00,
+            "supplier": "TechCorp"
+        },
+        {
+            "id": 2,
+            "name": "Standard Widget B",
+            "category": "Electronics",
+            "cost_price": 35.00,
+            "sell_price": 53.65,
+            "supplier": "TechCorp"
+        },
+        {
+            "id": 3,
+            "name": "Deluxe Gadget X",
+            "category": "Gadgets",
+            "cost_price": 78.50,
+            "sell_price": 116.18,
+            "supplier": "GadgetWorld"
+        },
+        {
+            "id": 4,
+            "name": "Basic Component C",
+            "category": "Components",
+            "cost_price": 12.50,
+            "sell_price": 20.82,
+            "supplier": "PartsPro"
+        },
+        {
+            "id": 5,
+            "name": "Pro Device Y",
+            "category": "Devices",
+            "cost_price": 95.00,
+            "sell_price": 123.39,
+            "supplier": "DeviceMaster"
+        },
+        {
+            "id": 6,
+            "name": "Elite Module Z",
+            "category": "Modules",
+            "cost_price": 52.00,
+            "sell_price": 72.53,
+            "supplier": "ModuleTech"
+        },
+        {
+            "id": 7,
+            "name": "Smart Sensor S",
+            "category": "Sensors",
+            "cost_price": 22.00,
+            "sell_price": 30.14,
+            "supplier": "SensorLab"
+        },
+        {
+            "id": 8,
+            "name": "Compact Unit U",
+            "category": "Units",
+            "cost_price": 28.50,
+            "sell_price": 34.36,
+            "supplier": "UnitCorp"
+        },
+        {
+            "id": 9,
+            "name": "Advanced Tool T",
+            "category": "Tools",
+            "cost_price": 45.00,
+            "sell_price": 56.91,
+            "supplier": "ToolMaker"
+        },
+        {
+            "id": 10,
+            "name": "Portable Kit K",
+            "category": "Kits",
+            "cost_price": 15.00,
+            "sell_price": 18.52,
+            "supplier": "KitBuilder"
+        }
+    ]
+}
