@@ -1,3 +1,7 @@
+"""
+LLM Service - Natural Language Generation with Translation Support
+Integrates with Ollama (Gemma3) for response generation and TranslateGemma for Arabic translation
+"""
 import logging
 import json
 from typing import Dict, Any, List, Optional
@@ -5,11 +9,13 @@ import ollama
 
 from backend.config import AI_CONFIG
 from backend.ai_agent.prompt_manager import get_prompt_manager
+from backend.ai_agent.translation_service import get_translation_service
 
 logger = logging.getLogger(__name__)
 
+
 class LLMService:
-    """Service for interacting with LLM providers (Ollama)"""
+    """Service for interacting with LLM providers (Ollama) with Arabic translation support"""
     
     def __init__(self):
         self.provider = AI_CONFIG.get("model_provider", "ollama")
@@ -17,11 +23,9 @@ class LLMService:
         self.model = AI_CONFIG.get("ollama_model", "gemma3:latest")
         self.options = AI_CONFIG.get("ollama_options", {})
         self.prompt_manager = get_prompt_manager()
+        self.translator = get_translation_service()
         
-        # Configure client
-        # Note: ollama python client uses generic env vars or defaults, 
-        # but we can try to set it if needed. 
-        # For now assuming local default or config.
+        logger.info(f"LLMService initialized with model: {self.model}, translation enabled: {self.translator.enabled}")
         
     async def generate_response(
         self, 
@@ -30,18 +34,28 @@ class LLMService:
         context: Dict[str, Any]
     ) -> str:
         """
-        Generate a natural language response based on data and query
+        Generate a natural language response based on data and query.
+        Automatically handles Arabic ↔ English translation if needed.
         """
         try:
-            # 1. Get System Prompt
+            # 1. Detect language and translate Arabic input to English
+            original_language = self.translator.detect_language(query)
+            working_query = query
+            
+            if original_language == "ar":
+                logger.info(f"[LLM SERVICE] Arabic query detected, translating to English...")
+                working_query = self.translator.translate_to_english(query)
+                logger.info(f"[LLM SERVICE] Translated query: {working_query[:100]}...")
+            
+            # 2. Get System Prompt
             system_prompt = self.prompt_manager.get_system_prompt()
             
-            # 2. Format Data Context
+            # 3. Format Data Context
             data_summary = self._format_data_for_llm(data)
             
-            # 3. Build User Message
+            # 4. Build User Message (always in English for Gemma3)
             current_user_message = f"""
-Query: "{query}"
+Query: "{working_query}"
 
 Analysis Context:
 - Domain: {context.get('allowed_domains', [])}
@@ -54,7 +68,7 @@ Data Results:
 Based on this data, provide a response following the defined communication style.
 """
 
-            # 4. Construct Messages
+            # 5. Construct Messages
             messages = [{'role': 'system', 'content': system_prompt}]
             
             # Add history (limit to last 4 messages for faster context processing)
@@ -74,7 +88,7 @@ Based on this data, provide a response following the defined communication style
             # Add current message
             messages.append({'role': 'user', 'content': current_user_message})
 
-            # 5. Call LLM
+            # 6. Call LLM (Gemma3)
             logger.info(f"[LLM SERVICE] Calling {self.model} with {len(messages)} messages")
             
             # keep_alive keeps model in memory for faster subsequent calls
@@ -88,16 +102,26 @@ Based on this data, provide a response following the defined communication style
             # Log metrics
             if 'eval_count' in response and 'eval_duration' in response:
                 tokens = response['eval_count']
-                duration_ns = response['eval_duration'] # Nanoseconds
+                duration_ns = response['eval_duration']  # Nanoseconds
                 duration_sec = duration_ns / 1_000_000_000
                 speed = tokens / duration_sec if duration_sec > 0 else 0
                 logger.info(f"[LLM STATS] Generated {tokens} tokens in {duration_sec:.2f}s ({speed:.2f} t/s)")
             
-            return response['message']['content']
+            english_response = response['message']['content']
+            
+            # 7. Translate response back to Arabic if original query was Arabic
+            if original_language == "ar":
+                logger.info(f"[LLM SERVICE] Translating response back to Arabic...")
+                arabic_response = self.translator.translate_to_arabic(english_response)
+                return arabic_response
+            
+            return english_response
             
         except Exception as e:
             logger.error(f"[LLM SERVICE] Error generating response: {e}")
-            return self._fallback_response(query, data)
+            import traceback
+            traceback.print_exc()
+            return self._fallback_response(query, data, original_language if 'original_language' in dir() else "en")
 
     def _format_data_for_llm(self, data: List[Dict]) -> str:
         """Format data list into a string for the LLM"""
@@ -122,14 +146,19 @@ Based on this data, provide a response following the defined communication style
             
         return data_str
 
-    def _fallback_response(self, query: str, data: List[Dict]) -> str:
+    def _fallback_response(self, query: str, data: List[Dict], language: str = "en") -> str:
         """Simple fallback if LLM fails"""
+        if language == "ar":
+            return f"تم العثور على {len(data)} نتيجة لـ '{query}'. (معالجة الذكاء الاصطناعي غير متاحة)"
         return f"Found {len(data)} results for '{query}'. (AI processing unavailable)"
 
-# Singleton
-_llm_service = None
 
-def get_llm_service():
+# Singleton
+_llm_service: Optional[LLMService] = None
+
+
+def get_llm_service() -> LLMService:
+    """Get or create the LLM service singleton"""
     global _llm_service
     if _llm_service is None:
         _llm_service = LLMService()

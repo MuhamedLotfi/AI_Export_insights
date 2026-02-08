@@ -55,6 +55,9 @@ AI_CONFIG = {
         "temperature": 0.7,
         "seed": 42,
     },
+    # Translation settings (TranslateGemma for Arabic support)
+    "translation_model": os.getenv("TRANSLATION_MODEL", "translategemma:4b"),
+    "translation_enabled": os.getenv("TRANSLATION_ENABLED", "true").lower() == "true",
 }
 
 # LangGraph Configuration
