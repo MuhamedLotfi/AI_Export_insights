@@ -48,16 +48,18 @@ class CoordinatorAgent:
         answer = await self._generate_answer(query, data, context)
         
         # Extract insights (keep rule-based as backup/structure)
-        insights = self._extract_insights(data, thinking_result)
+        # insights = self._extract_insights(data, thinking_result)
+        insights = []
         
         # Generate recommendations (keep rule-based as backup/structure)
-        recommendations = self._generate_recommendations(data, thinking_result)
+        # recommendations = self._generate_recommendations(data, thinking_result)
+        recommendations = []
         
         return {
             "answer": answer,
             "insights": insights,
             "recommendations": recommendations,
-            "summary": self._generate_summary(data, row_count),
+            "summary": "", # self._generate_summary(data, row_count),
             "metadata": {
                 "query_type": thinking_result.get("query_type"),
                 "domains_used": thinking_result.get("allowed_domains", []),

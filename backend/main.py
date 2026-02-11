@@ -7,6 +7,21 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
 import sys
+import codecs
+
+# FORCE UTF-8 ENCODING FOR WINDOWS CONSOLE
+if sys.platform == "win32":
+    try:
+        # Try reconfigure first (Python 3.7+)
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        # Fallback for wrapped streams or older Python
+        try:
+            sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+            sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+        except Exception:
+            pass
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,8 +35,8 @@ logging.basicConfig(
     level=getattr(logging, LOGGING_CONFIG['level']),
     format=LOGGING_CONFIG['format'],
     handlers=[
-        logging.FileHandler(LOGGING_CONFIG['file']),
-        logging.StreamHandler()
+        logging.FileHandler(LOGGING_CONFIG['file'], encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)

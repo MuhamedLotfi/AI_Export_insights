@@ -124,12 +124,12 @@ Based on this data, provide a response following the defined communication style
             return self._fallback_response(query, data, original_language if 'original_language' in dir() else "en")
 
     def _format_data_for_llm(self, data: List[Dict]) -> str:
-        """Format data list into a string for the LLM"""
+        """Format data list into a readable string for the LLM"""
         if not data:
             return "No data found matching the query."
             
-        # Limit data to avoid context overflow (reduced for speed)
-        max_items = 10
+        # Allow more items for nested/subtable data
+        max_items = 30
         total_count = len(data)
         truncated = False
         
@@ -137,12 +137,41 @@ Based on this data, provide a response following the defined communication style
         if total_count > max_items:
             display_data = data[:max_items]
             truncated = True
+        
+        # Check if this is subtable data (has _source_table or reference_type)
+        is_subtable = any("_source_table" in item or "reference_type" in item for item in display_data if isinstance(item, dict))
+        
+        if is_subtable:
+            # Format as structured summary for better LLM comprehension
+            lines = []
+            for i, item in enumerate(display_data, 1):
+                parts = [f"Record {i}:"]
+                for key, val in item.items():
+                    if key.startswith("_"):
+                        continue
+                    if isinstance(val, (dict, list)):
+                        continue
+                    if val is not None and val != "" and val != "None":
+                        # Format numbers with commas
+                        if isinstance(val, (int, float)) and key in ("totals", "amount", "total"):
+                            parts.append(f"  {key}: {val:,.0f}")
+                        else:
+                            parts.append(f"  {key}: {val}")
+                lines.append("\n".join(parts))
             
-        # Convert to compact JSON string (no indent for speed, ensure_ascii=False for Arabic)
-        data_str = json.dumps(display_data, default=str, ensure_ascii=False)
+            data_str = "\n\n".join(lines)
+            
+            # Add source context
+            source = display_data[0].get("_source_table", "") if display_data else ""
+            project = display_data[0].get("_project_name", "") if display_data else ""
+            if source:
+                data_str = f"Source: {source}\nProject: {project}\nTotal Records: {total_count}\n\n{data_str}"
+        else:
+            # Convert to compact JSON string (ensure_ascii=False for Arabic)
+            data_str = json.dumps(display_data, default=str, ensure_ascii=False)
         
         if truncated:
-            data_str += f"\n\n[Note: Showing {max_items} of {total_count} records. Use SQL count for precise large numbers.]"
+            data_str += f"\n\n[Showing {max_items} of {total_count} records]"
             
         return data_str
 

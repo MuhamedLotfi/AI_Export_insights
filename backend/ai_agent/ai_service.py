@@ -100,21 +100,15 @@ class AIService:
             final_response["agents_used"] = access_validation["allowed_agents"]
             final_response["agents_blocked"] = access_validation.get("blocked_agents", [])
             
-            # Store in conversation history
-            self._store_conversation(user_id, conversation_id, query, final_response)
-            
-            # Calculate timing
-            end_time = datetime.now()
-            duration_ms = (end_time - start_time).total_seconds() * 1000
-            
-            # Add metadata to response
-            final_response["metadata"] = final_response.get("metadata", {})
-            final_response["metadata"].update({
-                "user_id": user_id,
-                "conversation_id": conversation_id,
-                "duration_ms": duration_ms,
                 "timestamp": datetime.now().isoformat()
             })
+
+            # Store in conversation history and get ID
+            message_id = self._store_conversation(user_id, conversation_id, query, final_response)
+            if message_id:
+                final_response["metadata"]["message_id"] = message_id
+            
+            return final_response
             
             return final_response
             
@@ -161,10 +155,15 @@ class AIService:
                 "chart_data": response.get("chart_data"),
                 "insights": response.get("insights", []),
                 "recommendations": response.get("recommendations", []),
-                "metadata": response.get("metadata", {})
             })
             
-            # Persist to PostgreSQL if configured
+            # Return the ID (or generate one if using DB logic above is async/complex)
+            message_id = conversation_id if conversation_id else f"msg_{datetime.now().timestamp()}"
+            return message_id
+
+        except Exception as e:
+            logger.warning(f"Failed to persist conversation: {e}")
+            return None
             from backend.ai_agent.db_logger import get_postgres_logger
             pg_logger = get_postgres_logger()
             pg_logger.log_conversation(
@@ -337,6 +336,44 @@ class AIService:
             return True
         except Exception as e:
             logger.error(f"Error deleting session: {e}")
+            return False
+
+    def submit_feedback(
+        self,
+        user_id: int,
+        message_id: str,
+        rating: str, # "positive" or "negative"
+        comment: Optional[str] = None
+    ) -> bool:
+        """Submit feedback for a specific AI response"""
+        try:
+            # Update in memory (if available)
+            if user_id in self._conversation_history:
+                for conv in self._conversation_history[user_id]:
+                    # Simple matching - in real DB this would be by ID
+                    # Since we don't have per-message IDs in memory structure easily w/o refactor,
+                    # we'll skip memory update or do best-effort match if we had IDs there.
+                    pass
+            
+            # Persist to data adapter
+            try:
+                # Store feedback as a new record or update existing conversation if ID schema matches
+                # For now, let's store it in a 'feedback' table
+                self.adapter.insert("feedback", {
+                    "user_id": user_id,
+                    "message_id": message_id,
+                    "rating": rating,
+                    "comment": comment,
+                    "timestamp": datetime.now().isoformat()
+                })
+                logger.info(f"Feedback stored for message {message_id}: {rating}")
+                return True
+            except Exception as e:
+                logger.warning(f"Could not store feedback: {e}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error submitting feedback: {e}")
             return False
 
 

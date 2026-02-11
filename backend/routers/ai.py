@@ -268,3 +268,37 @@ async def delete_session(
             status_code=500,
             detail="Failed to delete session"
         )
+
+
+class FeedbackRequest(BaseModel):
+    message_id: str
+    rating: str  # "positive" or "negative"
+    comment: Optional[str] = None
+
+
+@router.post("/feedback")
+async def submit_feedback(
+    request: FeedbackRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Submit feedback for an AI response
+    """
+    from backend.ai_agent.ai_service import get_ai_service
+    
+    ai_service = get_ai_service()
+    
+    success = ai_service.submit_feedback(
+        user_id=current_user["id"],
+        message_id=request.message_id,
+        rating=request.rating,
+        comment=request.comment
+    )
+    
+    if success:
+        return {"status": "success", "message": "Feedback submitted"}
+    else:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to submit feedback"
+        )

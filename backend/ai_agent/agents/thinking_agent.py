@@ -67,11 +67,30 @@ class ThinkingAgent:
         
         return result
     
+    # Arabic keyword → domain mapping for bilingual routing
+    ARABIC_DOMAIN_KEYWORDS = {
+        "projects": ["مشروع", "مشاريع", "حالة المشروع", "بيانات المشروع"],
+        "sales": ["مبيعات", "إيرادات", "عميل", "فاتورة", "فواتير", "أمر بيع", "أوامر بيع", "توريد"],
+        "inventory": ["مخزون", "مخازن", "كمية", "إعادة طلب"],
+        "purchasing": ["مشتريات", "مورد", "موردين", "أمر شراء", "طلب شراء"],
+        "accounting": ["تكلفة", "ربح", "هامش", "مالي", "محاسبة", "ضريبة"],
+    }
+
+    # Arabic query type keywords
+    ARABIC_QUERY_TYPE_KEYWORDS = {
+        "ranking": ["أعلى", "أفضل", "أكثر", "أقل", "أدنى", "ترتيب"],
+        "aggregation": ["إجمالي", "مجموع", "عدد", "متوسط", "كم"],
+        "trend": ["اتجاه", "شهري", "أسبوعي", "يومي", "نمو"],
+        "comparison": ["مقارنة", "قارن", "بين", "فرق"],
+        "general": ["عرض", "بيانات", "كل", "اعرض", "وضح", "ما هو", "ما هي"],
+    }
+
     def _identify_domains(self, query: str) -> List[str]:
-        """Identify which domains are relevant to the query"""
+        """Identify which domains are relevant to the query (English + Arabic)"""
         query_lower = query.lower()
         domains = []
         
+        # English keyword matching from config
         for domain_code, config in self.domain_configs.items():
             keywords = config.get("keywords", [])
             for keyword in keywords:
@@ -80,14 +99,22 @@ class ThinkingAgent:
                         domains.append(domain_code)
                     break
         
-        # Default to sales if no domain detected
+        # Arabic keyword matching
+        for domain_code, ar_keywords in self.ARABIC_DOMAIN_KEYWORDS.items():
+            for keyword in ar_keywords:
+                if keyword in query:
+                    if domain_code not in domains:
+                        domains.append(domain_code)
+                    break
+        
+        # Default to projects if no domain detected (since project_59 is the main data)
         if not domains:
-            domains = ["sales"]
+            domains = ["projects"]
         
         return domains
     
     def _classify_query_type(self, query: str) -> str:
-        """Classify the type of query"""
+        """Classify the type of query (English + Arabic)"""
         query_lower = query.lower()
         
         # Ranking queries
@@ -113,6 +140,11 @@ class ThinkingAgent:
         # Calculation queries
         if any(kw in query_lower for kw in ["calculate", "compute", "what is", "how much"]):
             return "calculation"
+        
+        # Arabic query type matching
+        for qtype, ar_keywords in self.ARABIC_QUERY_TYPE_KEYWORDS.items():
+            if any(kw in query for kw in ar_keywords):
+                return qtype
         
         # Default to general query
         return "general"
