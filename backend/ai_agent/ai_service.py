@@ -100,6 +100,16 @@ class AIService:
             final_response["agents_used"] = access_validation["allowed_agents"]
             final_response["agents_blocked"] = access_validation.get("blocked_agents", [])
             
+            # Calculate timing
+            end_time = datetime.now()
+            duration_ms = (end_time - start_time).total_seconds() * 1000
+            
+            # Add metadata to response
+            final_response["metadata"] = final_response.get("metadata", {})
+            final_response["metadata"].update({
+                "user_id": user_id,
+                "conversation_id": conversation_id,
+                "duration_ms": duration_ms,
                 "timestamp": datetime.now().isoformat()
             })
 
@@ -107,8 +117,6 @@ class AIService:
             message_id = self._store_conversation(user_id, conversation_id, query, final_response)
             if message_id:
                 final_response["metadata"]["message_id"] = message_id
-            
-            return final_response
             
             return final_response
             

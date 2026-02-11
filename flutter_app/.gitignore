@@ -113,7 +113,6 @@ ios/Podfile.lock
 /dev/docs/doc/
 /dev/docs/api_docs.zip
 /dev/docs/flutter.docs.zip
-/dev/docs/lib/
 /dev/docs/pubspec.yaml
 /dev/integration_tests/**/xcuserdata
 /dev/integration_tests/**/Pods
@@ -214,3 +213,4 @@ app.*.symbols
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
 !.vscode/settings.json
+!/lib/
