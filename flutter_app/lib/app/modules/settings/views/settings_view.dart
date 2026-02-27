@@ -309,6 +309,30 @@ class SettingsView extends GetView<SettingsController> {
                 ? AppTheme.accentColor
                 : Colors.grey,
           ),
+          const Divider(color: Colors.white12),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.translate, color: Colors.white.withOpacity(0.6), size: 20),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Enable Translation',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+                Switch(
+                  value: controller.aiConfig.value['translation_enabled'] ?? true,
+                  activeColor: AppTheme.accentColor,
+                  onChanged: (value) => controller.toggleTranslation(value),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     ));

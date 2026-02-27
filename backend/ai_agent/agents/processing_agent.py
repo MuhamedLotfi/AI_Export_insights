@@ -14,126 +14,90 @@ logger = logging.getLogger(__name__)
 class ProcessingAgent:
     """Agent responsible for executing tools and retrieving data"""
     
-    # Bilingual keyword → subtable key mapping (English + Arabic)
+    # Bilingual keyword → Table Name mapping (English + Arabic)
+    # Maps user keywords to actual PostgreSQL tables
     SUBTABLE_MAP = {
-        # Bank Guarantees
-        "cancel bank": ["custom_custom_doctypes_to_cancel_bank_guarantee"],
-        "إلغاء ضمان": ["custom_custom_doctypes_to_cancel_bank_guarantee"],
-        "bank guarantee": ["custom_custom_doctypes_to_cancel_bank_guarantee", "custom_doctypes_to_send_bank_guarantee"],
-        "bank": ["custom_custom_doctypes_to_cancel_bank_guarantee", "custom_doctypes_to_send_bank_guarantee"],
-        "guarantee": ["custom_custom_doctypes_to_cancel_bank_guarantee", "custom_doctypes_to_send_bank_guarantee"],
-        "ضمان بنكي": ["custom_custom_doctypes_to_cancel_bank_guarantee", "custom_doctypes_to_send_bank_guarantee"],
-        "ضمان": ["custom_custom_doctypes_to_cancel_bank_guarantee", "custom_doctypes_to_send_bank_guarantee"],
-        "خطاب ضمان": ["custom_custom_doctypes_to_cancel_bank_guarantee", "custom_doctypes_to_send_bank_guarantee"],
-        "بنك": ["custom_custom_doctypes_to_cancel_bank_guarantee", "custom_doctypes_to_send_bank_guarantee"],
+        # Bank Guarantees (Not explicitly found in schema, mapping to best guesses or leaving empty if strict)
+        # Using 'CompanyContracts' or 'Contracts' as they might contain guarantee info?
+        # Or 'PaymentOrders' for financial instruments? 
+        # For now, mapping known tables.
         
         # Invoices
-        "sales invoice": ["custom_doctypes_to_send_sales_invoice"],
-        "فاتورة مبيعات": ["custom_doctypes_to_send_sales_invoice"],
-        "فواتير المبيعات": ["custom_doctypes_to_send_sales_invoice"],
-        "purchase invoice": ["custom_doctypes_to_send_purchase_invoice"],
-        "فاتورة مشتريات": ["custom_doctypes_to_send_purchase_invoice"],
-        "فواتير المشتريات": ["custom_doctypes_to_send_purchase_invoice"],
-        "invoice": ["custom_doctypes_to_send_sales_invoice", "custom_doctypes_to_send_purchase_invoice"],
-        "فاتورة": ["custom_doctypes_to_send_sales_invoice", "custom_doctypes_to_send_purchase_invoice"],
-        "فواتير": ["custom_doctypes_to_send_sales_invoice", "custom_doctypes_to_send_purchase_invoice"],
+        "sales invoice": ["EntityInvoices"],
+        "فاتورة مبيعات": ["EntityInvoices"],
+        "فواتير المبيعات": ["EntityInvoices"],
+        "purchase invoice": ["PaymentOrderInvoices"], # Assuming PaymentOrderInvoices relates to purchases
+        "فاتورة مشتريات": ["PaymentOrderInvoices"],
+        "فواتير المشتريات": ["PaymentOrderInvoices"],
+        "invoice": ["EntityInvoices", "PaymentOrderInvoices"],
+        "فاتورة": ["EntityInvoices", "PaymentOrderInvoices"],
+        "فواتير": ["EntityInvoices", "PaymentOrderInvoices"],
         
         # Orders
-        "sales order": ["custom_doctypes_to_send_sales_order"],
-        "أمر بيع": ["custom_doctypes_to_send_sales_order"],
-        "أوامر البيع": ["custom_doctypes_to_send_sales_order"],
-        "purchase order": ["custom_doctypes_to_send_purchase_order"],
-        "أمر شراء": ["custom_doctypes_to_send_purchase_order"],
-        "أوامر الشراء": ["custom_doctypes_to_send_purchase_order"],
-        "order": ["custom_doctypes_to_send_sales_order", "custom_doctypes_to_send_purchase_order"],
-        "طلب": ["custom_doctypes_to_send_sales_order", "custom_doctypes_to_send_purchase_order"],
-        "أمر توريد": ["custom_doctypes_to_send_sales_order"],
-        "أوامر": ["custom_doctypes_to_send_sales_order", "custom_doctypes_to_send_purchase_order"],
+        "sales order": ["AssignmentOrders"], # Best guess for sales orders
+        "أمر بيع": ["AssignmentOrders"],
+        "أوامر البيع": ["AssignmentOrders"],
+        "purchase order": ["PaymentOrders"], # Assuming PaymentOrders relates to purchasing
+        "أمر شراء": ["PaymentOrders"],
+        "أوامر الشراء": ["PaymentOrders"],
+        "order": ["AssignmentOrders", "PaymentOrders"],
+        "طلب": ["AssignmentOrders", "PaymentOrders"],
         
-        # Opportunities
-        "opportunity": ["custom_doctypes_opportinity", "custom_doctypes_to_send_opportinity", "custom_tax_opporunity"],
-        "فرصة": ["custom_doctypes_opportinity", "custom_doctypes_to_send_opportinity", "custom_tax_opporunity"],
-        "فرص": ["custom_doctypes_opportinity", "custom_doctypes_to_send_opportinity", "custom_tax_opporunity"],
-        "خطابات": ["custom_doctypes_opportinity", "custom_doctypes_to_send_opportinity"],
-        "خطاب": ["custom_doctypes_opportinity", "custom_doctypes_to_send_opportinity"],
-        "وارد": ["custom_doctypes_opportinity"],
-        "صادر": ["custom_doctypes_opportinity"],
+        # Opportunities / Letters -> Requests? or Operations?
+        "opportunity": ["Requests", "Operations"],
+        "فرصة": ["Requests", "Operations"],
+        "فرص": ["Requests", "Operations"],
+        "خطابات": ["Requests"],
+        "خطاب": ["Requests"],
         
         # Quotations
-        "quotation": ["custom_doctypes_to_send_quotation", "custom_supplier_quotation"],
-        "عرض سعر": ["custom_doctypes_to_send_quotation", "custom_supplier_quotation"],
-        "عرض أسعار": ["custom_doctypes_to_send_quotation", "custom_supplier_quotation"],
-        "عروض": ["custom_doctypes_to_send_quotation", "custom_supplier_quotation"],
+        "quotation": ["PriceOffers", "IndicativeQuotations"],
+        "عرض سعر": ["PriceOffers", "IndicativeQuotations"],
+        "عرض أسعار": ["PriceOffers", "IndicativeQuotations"],
+        "عروض": ["PriceOffers", "IndicativeQuotations"],
         
-        # Offer Notes
-        "offer": ["custom_doctypes_to_send_offer_note"],
-        "عرض": ["custom_doctypes_to_send_offer_note"],
+        # Contracts
+        "contract": ["Contracts", "CompanyContracts"],
+        "عقد": ["Contracts", "CompanyContracts"],
+        "contracts": ["Contracts", "CompanyContracts"],
+        "عقود": ["Contracts", "CompanyContracts"],
         
-        # Contract Modifications
-        "contract": ["custom_contract_modification_note_logs"],
-        "modification": ["custom_contract_modification_note_logs"],
-        "عقد": ["custom_contract_modification_note_logs"],
-        "تعديل عقد": ["custom_contract_modification_note_logs"],
-        "تعديل": ["custom_contract_modification_note_logs"],
-        "ملحق": ["custom_contract_modification_note_logs"],
-        
-        # Estimated Assay (Quotation Estimates)
-        "assay": ["custom_doctypes_to_send_estimated_assay"],
-        "estimated": ["custom_doctypes_to_send_estimated_assay"],
-        "مقايسة": ["custom_doctypes_to_send_estimated_assay"],
-        "مقايسات": ["custom_doctypes_to_send_estimated_assay"],
-        "تقديرية": ["custom_doctypes_to_send_estimated_assay"],
-        
-        # Certificates
-        "certificate": ["custom_request_cert"],
-        "شهادة": ["custom_request_cert"],
-        "شهادات": ["custom_request_cert"],
-        
-        # Payment Claims
-        "claim": ["custom_payment_claim_logs"],
-        "payment": ["custom_payment_claim_logs"],
-        "مطالبة": ["custom_payment_claim_logs"],
-        "مطالبات": ["custom_payment_claim_logs"],
-        "دفع": ["custom_payment_claim_logs"],
-        "مستخلص": ["custom_payment_claim_logs"],
+        # Claims
+        "claim": ["PaymentOrderClaims"],
+        "مطالبة": ["PaymentOrderClaims"],
+        "مطالبات": ["PaymentOrderClaims"],
+        "claims": ["PaymentOrderClaims"],
         
         # Tax
-        "tax": ["custom_tax_status", "custom_tax_opporunity", "custom_tax_letters"],
-        "ضريبة": ["custom_tax_status", "custom_tax_opporunity", "custom_tax_letters"],
-        "ضرائب": ["custom_tax_status", "custom_tax_opporunity", "custom_tax_letters"],
-        "إعفاء": ["custom_tax_release_logs"],
+        "tax": ["TaxExemptions", "TaxExemptionInvoices"],
+        "ضريبة": ["TaxExemptions"],
+        "ضرائب": ["TaxExemptions"],
         
-        # Hazards
-        "hazard": ["custom_doctypes_to_send_hazarads"],
-        "risk": ["custom_doctypes_to_send_hazarads"],
-        "مخاطر": ["custom_doctypes_to_send_hazarads"],
+        # Operations
+        "operation": ["Operations"],
+        "عملية": ["Operations"],
+        "operations": ["Operations"],
+        "عمليات": ["Operations"],
         
-        # Extension Letters
-        "extension": ["custom_extension_letter"],
-        "تمديد": ["custom_extension_letter"],
-        "مد مدة": ["custom_extension_letter"],
+        # Lookups
+        "lookup": ["Lookups", "LookupItems"],
         
-        # Contract Periods
-        "period": ["custom_contract_periods_entity"],
-        "فترة": ["custom_contract_periods_entity"],
-        "فترات": ["custom_contract_periods_entity"],
-        "مدة العقد": ["custom_contract_periods_entity"],
+        # Users/Roles
+        "user": ["Users"],
+        "role": ["Roles"],
         
-        # Dues Payment
-        "dues": ["custom_dues_payment_log"],
-        "مستحقات": ["custom_dues_payment_log"],
-        
-        # Consultant Letters
-        "consultant": ["custom_consultant_letters"],
-        "استشاري": ["custom_consultant_letters"],
-
-        "Letter": ["custom_doctypes_to_send_opportinity"],
-        "الخطابات": ["custom_doctypes_to_send_opportinity"],    
-        "خطاب": ["custom_doctypes_to_send_opportinity"],
-
-        
-        "مطالبة صرف": ["custom_payment_claim_logs"],
-        "claim": ["custom_payment_claim_logs"], 
+        # Dues / Entitlements / Disbursements (مستحقات / صرف)
+        "مستحقات": ["PaymentOrders", "PaymentOrderClaims", "PaymentOrderDeductions"],
+        "صرف": ["PaymentOrders", "PaymentOrderClaims"],
+        "صرف مستحقات": ["PaymentOrders", "PaymentOrderClaims", "PaymentOrderDeductions"],
+        "مستحقات الضباط": ["PaymentOrders", "PaymentOrderClaims"],
+        "dues": ["PaymentOrders", "PaymentOrderClaims", "PaymentOrderDeductions"],
+        "entitlements": ["PaymentOrders", "PaymentOrderClaims"],
+        "disbursement": ["PaymentOrders", "PaymentOrderClaims"],
+        "payment": ["PaymentOrders", "PaymentOrderClaims"],
+        "دفع": ["PaymentOrders", "PaymentOrderClaims"],
+        "مدفوعات": ["PaymentOrders", "PaymentOrderClaims"],
+        "مستخلص": ["PaymentOrderClaims", "PaymentOrderClaimItems"],
     }
     
     # Human-readable names for subtable keys (for response context)
@@ -170,6 +134,10 @@ class ProcessingAgent:
         "custom_bg_note": "ملاحظات الضمان (BG Notes)",
     }
     
+    # Class-level cached LLM instance for SQL Agent (created once, reused)
+    _cached_llm = None
+    _cached_llm_provider = None
+
     def __init__(self):
         self.adapter = get_adapter()
     
@@ -223,13 +191,171 @@ class ProcessingAgent:
         domain_context: Dict[str, Any],
         parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Execute SQL-like query on data with deep nested extraction"""
+        """Execute SQL query using LangChain SQL Agent if available, otherwise fallback"""
+        
+        # Check if we are in database mode
+        from backend.config import DATA_SOURCE
+        
+        if DATA_SOURCE == "database":
+             try:
+                from backend.ai_agent.database_service import get_database
+                from langchain_community.agent_toolkits import create_sql_agent
+                from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+                from langchain_openai import ChatOpenAI
+                try:
+                    from langchain_ollama import OllamaLLM
+                except ImportError:
+                    from langchain_community.llms import Ollama as OllamaLLM
+                from backend.config import AI_CONFIG
+                
+                from backend.ai_agent.database_service import get_restricted_db
+                
+                # Determine tables to include to prevent context overflow ("Chunk too big")
+                tables_to_include = []
+                
+                # 1. Use tables from domain context (identified by Thinking Agent)
+                if domain_context.get("tables"):
+                    tables_to_include.extend(domain_context["tables"])
+                    
+                # 2. Add tables based on query keywords (using SUBTABLE_MAP)
+                query_lower = query.lower()
+                for keyword, mapped_tables in self.SUBTABLE_MAP.items():
+                    if keyword in query_lower:
+                        tables_to_include.extend(mapped_tables)
+                
+                # 3. If still empty, use a sensible default set of core tables
+                if not tables_to_include:
+                     tables_to_include = [
+                         "Operations",        # Projects
+                         "EntityInvoices",    # Sales
+                         "Contracts",         # Contracts
+                         "PaymentOrders",     # Purchases
+                         "AssignmentOrders",  # Sales Orders
+                         "Users",             # Users
+                         "Roles",             # User roles
+                         "Permissions",       # Permissions
+                         "Entities",          # Customers/Suppliers
+                         "LookupItems",       # Lookup values
+                     ]
+                
+                # 4. Auto-include related tables when relevant ones are present
+                RELATED_TABLES = {
+                    "Users": ["Roles", "UserRoles", "RolePermissions", "Permissions"],
+                    "Roles": ["Users", "RolePermissions", "Permissions"],
+                    "Operations": ["OperationFiles", "OperationClauses", "OperationTimelines"],
+                    "EntityInvoices": ["EntityInvoiceItems"],
+                    "PaymentOrders": ["PaymentOrderClaims", "PaymentOrderInvoices"],
+                    "Contracts": ["CompanyContracts"],
+                }
+                expanded = set(tables_to_include)
+                for t in list(expanded):
+                    if t in RELATED_TABLES:
+                        expanded.update(RELATED_TABLES[t])
+                tables_to_include = list(expanded)
+                
+                # Safety check: If list is still huge, limit it? 
+                # (Unlikely with this logic, but good to know)
+                
+                logger.info(f"[PROCESSING AGENT] Restricting SQL Agent to tables: {tables_to_include}")
+                
+                # Get restricted database instance
+                db = get_restricted_db(tables_to_include)
+                if db:
+                    logger.info("[PROCESSING AGENT] Using LangChain SQL Agent")
+                    
+                    # Get or create cached LLM instance (singleton)
+                    current_provider = AI_CONFIG["model_provider"]
+                    if ProcessingAgent._cached_llm is None or ProcessingAgent._cached_llm_provider != current_provider:
+                        if current_provider == "openai":
+                            ProcessingAgent._cached_llm = ChatOpenAI(
+                                model=AI_CONFIG["openai_model"],
+                                api_key=AI_CONFIG["openai_api_key"],
+                                temperature=0
+                            )
+                        else:
+                            ProcessingAgent._cached_llm = OllamaLLM(
+                                base_url=AI_CONFIG["ollama_base_url"],
+                                model=AI_CONFIG["ollama_model"],
+                                temperature=0
+                            )
+                        ProcessingAgent._cached_llm_provider = current_provider
+                        logger.info(f"[PROCESSING AGENT] Created cached LLM ({current_provider})")
+                    
+                    llm = ProcessingAgent._cached_llm
+                    
+                    # Create SQL Agent with strict double-quoting rules
+                    toolkit = SQLDatabaseToolkit(db=db, llm=llm)
+                    
+                    schema_info = ""
+                    try:
+                        # Pre-fetch the exact schema string the agent usually wastes iterations acquiring
+                        schema_info = db.get_table_info()
+                    except Exception as e:
+                        logger.warning(f"[PROCESSING AGENT] Could not fetch schema info directly: {e}")
+
+                    sql_agent_prefix = f"""You are an agent designed to interact with a PostgreSQL database.
+
+Here is the exact schema information for the tables you are allowed to query. Review it carefully before answering.
+<schema>
+{schema_info}
+</schema>
+
+CRITICAL RULE - DOUBLE QUOTES ON EVERY IDENTIFIER:
+This PostgreSQL database has case-sensitive table and column names.
+You MUST wrap EVERY table name and EVERY column name in double quotes.
+
+CORRECT:   SELECT "Username", "RoleId" FROM "Users" WHERE "IsActive" = true
+CORRECT:   SELECT U."Username", R."RoleName" FROM "Users" U JOIN "Roles" R ON U."RoleId" = R."Id"
+INCORRECT: SELECT Username FROM Users  -- THIS WILL FAIL!
+INCORRECT: SELECT * FROM Roles         -- THIS WILL FAIL!
+
+ALWAYS use double quotes. NEVER write a query without double quotes around identifiers.
+If you get an 'UndefinedTable' or 'UndefinedColumn' error, it means you forgot double quotes.
+
+Also limit your results with LIMIT 50 unless asked for all rows.
+
+IMPORTANT GUIDELINES FOR SPEED:
+1. DO NOT use the sql_db_list_tables tool. You already know which tables exist.
+2. DO NOT use the sql_db_schema tool unless absolutely necessary.
+3. Write your SELECT query immediately and execute it using sql_db_query."""
+
+                    agent_executor = create_sql_agent(
+                        llm=llm,
+                        toolkit=toolkit,
+                        verbose=True,
+                        agent_type="zero-shot-react-description",
+                        handle_parsing_errors=True,
+                        max_iterations=8,
+                        prefix=sql_agent_prefix
+                    )
+                    
+                    # Execute
+                    # Enhance query with domain context if needed
+                    full_query = query
+                    if domain_context.get("tables"):
+                        full_query += f" (Focus on tables: {', '.join(domain_context['tables'])})"
+                        
+                    response = await agent_executor.ainvoke(full_query)
+                    result_text = response.get("output", "")
+                    
+                    return {
+                        "data": [{"result": result_text}], # SQL Agent returns text summary
+                        "query": full_query,
+                        "generated_query": "Generated by SQL Agent",
+                        "summary": result_text
+                    }
+                    
+             except Exception as e:
+                logger.error(f"[PROCESSING AGENT] SQL Agent error: {e}")
+                # Fallback to normal execution if agent fails
+        
+        # ... Rest of original implementation for JSON/Fallback ...
         tables = domain_context.get("tables", [])
         limit = parameters.get("limit", 50)
         order = parameters.get("order", "desc")
         
         if not tables:
-            tables = ["project_59"]  # Default to project data
+            tables = ["Operations"]  # Default to Operations (projects) table
         
         query_lower = query.lower()
         
@@ -242,8 +368,13 @@ class ProcessingAgent:
             any(kw in query for kw in overview_keywords_ar)
         )
         
-        if is_overview and "project_59" in tables:
+        if is_overview and any(t.lower() in ["operations", "project_59"] for t in tables):
             logger.info("[PROCESSING AGENT] Project overview request detected")
+            # Use SQL for project overview in database mode
+            overview_sql = 'SELECT * FROM "Operations" LIMIT 50'
+            data = self.adapter.execute_query(overview_sql)
+            if data:
+                return {"data": data, "query": overview_sql}
             return await self._get_project_overview()
         
         # ====== STEP 2: CHECK FOR SUBTABLE EXTRACTION ======
@@ -264,35 +395,46 @@ class ProcessingAgent:
         
         # ====== STEP 3: FALLBACK — GENERAL TABLE QUERY ======
         primary_table = tables[0]
+        primary_table_lower = primary_table.lower()
         
-        # Smart table selection
+        # Smart table selection (case-insensitive check)
         if "project" in query_lower or "مشروع" in query:
-            if "project_59" in tables:
-                primary_table = "project_59"
-        elif "inventory" in query_lower and "inventory" in tables:
-            primary_table = "inventory"
+            # Check for Operations table
+            proj_match = next((t for t in tables if t.lower() in ["operations"]), None)
+            if proj_match:
+                primary_table = proj_match
+                primary_table_lower = primary_table.lower()
+                
+        elif "inventory" in query_lower:
+            inv_match = next((t for t in tables if t.lower() in ["inventory", "items", "lookupitems"]), None)
+            if inv_match:
+                primary_table = inv_match
+                primary_table_lower = primary_table.lower()
+                
         elif "sales" in query_lower or "مبيعات" in query:
-            if "sales" in tables and self.adapter.get_all("sales"):
-                primary_table = "sales"
-            elif "project_59" in tables:
-                primary_table = "project_59"
+            sales_match = next((t for t in tables if t.lower() in ["sales", "entityinvoices", "invoices"]), None)
+            if sales_match:
+                primary_table = sales_match
+                primary_table_lower = primary_table.lower()
         
-        # Build query based on query type
-        if "top" in query_lower or "ranking" in query_lower or "project" in query_lower or "مشروع" in query:
-            if primary_table == "project_59":
-                sql = f"SELECT * FROM project_59 ORDER BY total_sales_amount {order} LIMIT {limit}"
-            elif primary_table == "sales":
-                sql = f"SELECT * FROM sales ORDER BY amount {order} LIMIT {limit}"
-            elif primary_table == "inventory":
-                sql = f"SELECT * FROM inventory ORDER BY quantity {order} LIMIT {limit}"
+        # Build query based on query type — ALL table names double-quoted for PostgreSQL
+        qt = f'"' + primary_table + '"'  # quoted table name
+        if "top" in query_lower or "ranking" in query_lower:
+            if primary_table_lower == "operations":
+                sql = f"SELECT * FROM {qt} LIMIT {limit}"
+            elif primary_table_lower == "entityinvoices":
+                sql = f"SELECT * FROM {qt} ORDER BY \"TotalAmount\" {order} LIMIT {limit}"
             else:
-                sql = f"SELECT * FROM {primary_table} LIMIT {limit}"
+                sql = f"SELECT * FROM {qt} LIMIT {limit}"
         
         elif "total" in query_lower or "sum" in query_lower or "إجمالي" in query or "مجموع" in query:
-            sql = f"SELECT * FROM {primary_table}"
+             if primary_table_lower == "entityinvoices":
+                 sql = f"SELECT SUM(\"TotalAmount\") as total FROM {qt}"
+             else:
+                 sql = f"SELECT * FROM {qt}"
         
         else:
-            sql = f"SELECT * FROM {primary_table} LIMIT {limit}"
+            sql = f"SELECT * FROM {qt} LIMIT {limit}"
         
         logger.info(f"[PROCESSING AGENT] Generated SQL: {sql}")
         
@@ -310,51 +452,41 @@ class ProcessingAgent:
     
     async def _extract_subtable_data(
         self,
-        target_keys: List[str],
+        target_tables: List[str],
         limit: int = 50,
         order: str = "desc"
     ) -> Dict[str, Any]:
-        """Extract nested subtable data from project_59 with rich context"""
-        project_data = self.adapter.get_all("project_59")
+        """Extract data from specific tables (formerly subtables)"""
         extracted_data = []
-        source_labels = []
         
-        for proj in project_data:
-            for key in target_keys:
-                if key in proj and isinstance(proj[key], list):
-                    label = self.SUBTABLE_LABELS.get(key, key)
-                    source_labels.append(label)
-                    items = proj[key]
-                    for item in items:
-                        if isinstance(item, dict):
-                            # Add context metadata
-                            enriched = {
-                                "_source_table": label,
-                                "_project_name": proj.get("project_name", ""),
-                                "_project_id": proj.get("name", ""),
-                            }
-                            # Add the most useful fields first for readability
-                            for field in ["reference_type", "reference_name", "doc_details", "totals", "customer", "idx"]:
-                                if field in item:
-                                    enriched[field] = item[field]
-                            # Add remaining fields
-                            for k, v in item.items():
-                                if k not in enriched and k not in ("parent", "parentfield", "parenttype", "doctype", "docstatus", "owner", "creation", "modified", "modified_by"):
-                                    enriched[k] = v
-                            extracted_data.append(enriched)
-        
-        # Sort by totals or idx
-        if extracted_data:
+        for table in target_tables:
+            # Query the table directly
             try:
-                extracted_data.sort(
-                    key=lambda x: float(x.get("totals", x.get("idx", 0)) or 0),
-                    reverse=(order == "desc")
-                )
-            except (ValueError, TypeError):
-                pass
+                # Basic select query
+                # If we have an OperationId, we could join, but for now we just list data
+                if order == "desc":
+                     # Try to find a logical sort column
+                     # Generic sort isn't easy without known column, usually Id or Created
+                     sql = f"SELECT * FROM \"{table}\" LIMIT {limit}"
+                else:
+                     sql = f"SELECT * FROM \"{table}\" LIMIT {limit}"
+                
+                logger.info(f"[PROCESSING AGENT] Querying subtable: {table}")
+                data = self.adapter.execute_query(sql)
+                
+                if not data:
+                    # Fallback to get_all if execute_query fails or returns empty (and not error)
+                    data = self.adapter.get_all(table)[:limit]
+                
+                # Enrich data with source info
+                for row in data:
+                    row["_source_table"] = table
+                    extracted_data.append(row)
+                    
+            except Exception as e:
+                logger.error(f"[PROCESSING AGENT] Error querying table {table}: {e}")
         
-        unique_labels = list(dict.fromkeys(source_labels))
-        query_desc = f"Extracted {', '.join(unique_labels)} ({len(extracted_data)} records)"
+        query_desc = f"Extracted data from {', '.join(target_tables)} ({len(extracted_data)} records)"
         
         return {
             "data": extracted_data[:limit],
@@ -362,59 +494,66 @@ class ProcessingAgent:
         }
     
     async def _get_project_overview(self) -> Dict[str, Any]:
-        """Generate a structured project overview with subtable counts"""
-        project_data = self.adapter.get_all("project_59")
-        
-        if not project_data:
-            return {"data": [], "query": "Project overview - no data found"}
-        
-        overview_records = []
-        
-        for proj in project_data:
-            # Build summary with top-level fields
-            summary = {
-                "المشروع (Project)": proj.get("name", ""),
-                "اسم المشروع (Project Name)": proj.get("project_name", ""),
-                "العميل (Customer)": proj.get("customer", ""),
-                "الشركة (Company)": proj.get("company", ""),
-                "الحالة (Status)": proj.get("status", ""),
-                "حالة المشروع (PR Status)": proj.get("custom_pr_status", ""),
-                "نوع المشروع (Type)": proj.get("project_type", ""),
-                "نوع التعاقد (Contract Type)": proj.get("custom_type_of_contracts", ""),
-                "إجمالي المبيعات (Total Sales)": f"{proj.get('total_sales_amount', 0):,.0f}",
-                "إجمالي المشتريات (Total Purchase Cost)": f"{proj.get('total_purchase_cost', 0):,.0f}",
-                "إجمالي الفواتير (Total Billed)": f"{proj.get('total_billed_amount', 0):,.0f}",
-                "هامش الربح (Gross Margin)": f"{proj.get('gross_margin', 0):,.0f}",
-                "نسبة الربحية (Profitability %)": f"{proj.get('custom_project_profitability', 0):.2f}%",
-                "المورد المعتمد (Accepted Supplier)": proj.get("custom_accepted_supplier", ""),
-                "السنة المالية (Fiscal Year)": proj.get("custom_project_fiscal_year", ""),
-                "الأولوية (Priority)": proj.get("priority", ""),
+        """Generate a structured project overview from Operations and EntityInvoices"""
+        try:
+            # Get recent operations (projects)
+            sql_ops = 'SELECT "Id", "OperationName", "OperationDate", "StatusLookupItemId", "Created" FROM "Operations" ORDER BY "Created" DESC LIMIT 20'
+            logger.info("[PROCESSING AGENT] Fetching Operations overview...")
+            operations = self.adapter.execute_query(sql_ops)
+            
+            if not operations:
+                # Fallback if execute_query returns empty but get_all works
+                operations = self.adapter.get_all("Operations")[:20]
+                
+            if not operations:
+                return {"data": [], "query": "Project overview - no operations found"}
+            
+            overview_records = []
+            
+            for op in operations:
+                op_id = op.get("Id")
+                op_name = op.get("OperationName") or f"Operation #{op_id}"
+                op_date = op.get("OperationDate") or op.get("Created")
+                status_id = op.get("StatusLookupItemId", "")
+                
+                # Calculate total sales from EntityInvoices for this operation
+                total_sales = 0.0
+                sales_count = 0
+                
+                if op_id:
+                    # Handle UUID or Int ID properly in SQL
+                    # Assuming Id is UUID/String based on typical ERP usage, need quotes
+                    sql_sales = f'SELECT SUM("TotalAmount") as total, COUNT(*) as count FROM "EntityInvoices" WHERE "OperationId" = \'{op_id}\''
+                    try:
+                        sales_res = self.adapter.execute_query(sql_sales)
+                        if sales_res and sales_res[0]:
+                            row = sales_res[0]
+                            total_sales = float(row.get("total") or 0)
+                            sales_count = int(row.get("count") or 0)
+                    except Exception as e:
+                        logger.warning(f"[PROCESSING AGENT] Error fetching sales for op {op_id}: {e}")
+
+                summary = {
+                    "المشروع (Project)": op_name,
+                    "التاريخ (Date)": str(op_date),
+                    "الحالة (Status ID)": str(status_id),
+                    "إجمالي الفواتير (Total Sales)": f"{total_sales:,.2f}",
+                    "عدد الفواتير (Invoice Count)": str(sales_count)
+                }
+                
+                # Check for other linked data if needed (e.g. Claims)
+                # But keep it simple for now
+                
+                overview_records.append(summary)
+            
+            return {
+                "data": overview_records,
+                "query": "Recent Project Operations Overview (Standard SQL)"
             }
             
-            # Count nested subtables
-            subtable_summary = {}
-            for key, label in self.SUBTABLE_LABELS.items():
-                if key in proj and isinstance(proj[key], list) and len(proj[key]) > 0:
-                    count = len(proj[key])
-                    # Calculate total if items have 'totals' field
-                    items = proj[key]
-                    total_value = sum(
-                        float(item.get("totals", 0) or 0) 
-                        for item in items 
-                        if isinstance(item, dict)
-                    )
-                    if total_value > 0:
-                        subtable_summary[label] = f"{count} records (Total: {total_value:,.0f})"
-                    else:
-                        subtable_summary[label] = f"{count} records"
-            
-            summary["البيانات الفرعية (Sub-tables)"] = subtable_summary
-            overview_records.append(summary)
-        
-        return {
-            "data": overview_records,
-            "query": "Project 59 - Full Overview"
-        }
+        except Exception as e:
+            logger.error(f"[PROCESSING AGENT] Error generating overview: {e}")
+            return {"data": [], "query": "Error generating overview", "error": str(e)}
     
     async def _execute_calculator(
         self,
@@ -468,39 +607,71 @@ class ProcessingAgent:
         return {"data": [], "query": "Unable to parse calculation"}
     
     async def _execute_rag(self, query: str) -> Dict[str, Any]:
-        """Execute text-based retrieval across all data including nested subtables"""
+        """Execute retrieval - uses hybrid RAG search (vector + keyword + table relevance) in database mode"""
+        
+        # Try enhanced RAG search first (database mode)
+        from backend.config import DATA_SOURCE
+        if DATA_SOURCE == "database":
+            try:
+                from backend.ai_agent.rag_search_service import get_rag_search_service
+                rag_svc = get_rag_search_service()
+                
+                logger.info("[PROCESSING AGENT] Using hybrid RAG search (vector + keyword + table relevance)")
+                rag_results = rag_svc.search(query, top_k=10)
+                
+                if rag_results:
+                    results = []
+                    for r in rag_results:
+                        results.append({
+                            "content": r.content,
+                            "table": r.table_name,
+                            "row_id": r.row_id,
+                            "final_score": round(r.final_score, 4),
+                            "vector_score": round(r.vector_score, 4),
+                            "keyword_score": round(r.keyword_score, 4),
+                            "_source": "hybrid_rag_search"
+                        })
+                    return {
+                        "data": results,
+                        "query": f"Hybrid RAG search: {query}"
+                    }
+                else:
+                    logger.info("[PROCESSING AGENT] No RAG results, falling back to keyword search")
+            except Exception as e:
+                logger.warning(f"[PROCESSING AGENT] RAG search error: {e}, falling back to keyword")
+        
+        # Fallback: keyword-based search across database tables
         results = []
         query_terms = [t.lower() for t in query.split() if len(t) > 2]
         
         try:
-            from backend.config import JSON_FILES
-            tables = list(JSON_FILES.keys())
+            # Use database schema to get table list (not JSON_FILES)
+            schema = self.adapter.get_schema()
+            tables = [t for t in schema.keys() if t not in [
+                "users", "agents", "conversations", "settings", "feedback",
+                "embeddings", "__EFMigrationsHistory",
+                "session_summaries", "cross_session_index", "user_preferences"
+            ]]
             
-            for table in tables:
-                if table in ["users", "agents", "conversations", "settings"]:
+            # Limit to a reasonable number of tables to avoid scanning everything
+            search_tables = tables[:20]
+            
+            for table in search_tables:
+                try:
+                    data = self.adapter.get_all(table)
+                except Exception:
                     continue
                 
-                data = self.adapter.get_all(table)
-                
-                for row in data:
-                    # Search top-level fields
+                for row in data[:100]:  # Limit rows per table for performance
                     row_str = ""
                     for k, v in row.items():
                         if isinstance(v, (str, int, float)):
                             row_str += f" {str(v).lower()}"
-                        elif isinstance(v, list):
-                            # Search inside nested arrays too
-                            for item in v:
-                                if isinstance(item, dict):
-                                    for ik, iv in item.items():
-                                        if isinstance(iv, (str, int, float)):
-                                            row_str += f" {str(iv).lower()}"
                     
                     match_count = sum(1 for term in query_terms if term in row_str)
                     
                     if match_count > 0:
                         result_row = {}
-                        # Only include readable fields
                         for k, v in row.items():
                             if isinstance(v, (str, int, float, bool)):
                                 result_row[k] = v
@@ -524,3 +695,4 @@ class ProcessingAgent:
                 "error": str(e),
                 "query": "RAG Search Failed"
             }
+

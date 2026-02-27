@@ -1,31 +1,34 @@
 """
-LLM Service - Natural Language Generation with Translation Support
-Integrates with Ollama (Gemma3) for response generation and TranslateGemma for Arabic translation
+LLM Service - Natural Language Generation
+Integrates with Ollama (Gemma3) for response generation with native Arabic support
 """
 import logging
 import json
+import re
 from typing import Dict, Any, List, Optional
 import ollama
 
 from backend.config import AI_CONFIG
 from backend.ai_agent.prompt_manager import get_prompt_manager
-from backend.ai_agent.translation_service import get_translation_service
 
 logger = logging.getLogger(__name__)
 
 
 class LLMService:
-    """Service for interacting with LLM providers (Ollama) with Arabic translation support"""
+    """Service for interacting with LLM providers (Ollama) with native Arabic support"""
+    
+    # Arabic Unicode range pattern for language detection
+    ARABIC_PATTERN = re.compile(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]')
     
     def __init__(self):
         self.provider = AI_CONFIG.get("model_provider", "ollama")
         self.base_url = AI_CONFIG.get("ollama_base_url", "http://localhost:11434")
-        self.model = AI_CONFIG.get("ollama_model", "gemma3:latest")
+        self.model = AI_CONFIG.get("ollama_model")
         self.options = AI_CONFIG.get("ollama_options", {})
+        self.output_language = AI_CONFIG.get("output_language", "ar")
         self.prompt_manager = get_prompt_manager()
-        self.translator = get_translation_service()
         
-        logger.info(f"LLMService initialized with model: {self.model}, translation enabled: {self.translator.enabled}")
+        logger.info(f"LLMService initialized with model: {self.model}, output_language: {self.output_language}")
         
     async def generate_response(
         self, 
@@ -35,17 +38,12 @@ class LLMService:
     ) -> str:
         """
         Generate a natural language response based on data and query.
-        Automatically handles Arabic ↔ English translation if needed.
+        The multilingual model handles Arabic natively.
         """
         try:
-            # 1. Detect language and translate Arabic input to English
-            original_language = self.translator.detect_language(query)
+            # 1. Detect language for response formatting
+            original_language = self._detect_language(query)
             working_query = query
-            
-            if original_language == "ar":
-                logger.info(f"[LLM SERVICE] Arabic query detected, translating to English...")
-                working_query = self.translator.translate_to_english(query)
-                logger.info(f"[LLM SERVICE] Translated query: {working_query[:100]}...")
             
             # 2. Get System Prompt
             system_prompt = self.prompt_manager.get_system_prompt()
@@ -53,7 +51,9 @@ class LLMService:
             # 3. Format Data Context
             data_summary = self._format_data_for_llm(data)
             
-            # 4. Build User Message (always in English for Gemma3)
+            # 4. Build User Message
+            language_instruction = "CRITICAL: You MUST write your final response entirely in Arabic." if self.output_language == "ar" or original_language == "ar" else ""
+            
             current_user_message = f"""
 Query: "{working_query}"
 
@@ -66,24 +66,48 @@ Data Results:
 {data_summary}
 
 Based on this data, provide a response following the defined communication style.
+{language_instruction}
 """
 
-            # 5. Construct Messages
+            # 5. Construct Messages — memory-aware context building
+            # Order: system prompt → preferences (stable) → summary → cross-session → history → current query
             messages = [{'role': 'system', 'content': system_prompt}]
-            
-            # Add history (limit to last 4 messages for faster context processing)
-            history = context.get('history', [])
+
+            # Inject user preferences (most stable, helps KV cache)
+            user_prefs = context.get('user_preferences', '')
+            if user_prefs:
+                messages.append({
+                    'role': 'system',
+                    'content': f'User preferences:\n{user_prefs}'
+                })
+
+            # Inject session summary
+            session_summary = context.get('session_summary', '')
+            if session_summary:
+                messages.append({
+                    'role': 'system',
+                    'content': f'Conversation summary so far:\n{session_summary}'
+                })
+
+            # Inject cross-session context
+            cross_session = context.get('cross_session_context', '')
+            if cross_session:
+                messages.append({
+                    'role': 'system',
+                    'content': f'Relevant context from past conversations:\n{cross_session}'
+                })
+
+            # Add conversation history (already token-budgeted by MemoryManager)
+            history = context.get('conversation_history', context.get('history', []))
             if history:
-                # Filter to only valid roles and content
                 clean_history = []
-                for msg in history[-4:]:  # Reduced from 10 to 4 for speed
+                for msg in history:
                     role = msg.get('role')
                     content = msg.get('content')
                     if role in ['user', 'assistant'] and content:
-                        # Truncate long messages in history
-                        truncated_content = str(content)[:500] if len(str(content)) > 500 else str(content)
-                        clean_history.append({'role': role, 'content': truncated_content})
+                        clean_history.append({'role': role, 'content': str(content)})
                 messages.extend(clean_history)
+
             
             # Add current message
             messages.append({'role': 'user', 'content': current_user_message})
@@ -107,21 +131,24 @@ Based on this data, provide a response following the defined communication style
                 speed = tokens / duration_sec if duration_sec > 0 else 0
                 logger.info(f"[LLM STATS] Generated {tokens} tokens in {duration_sec:.2f}s ({speed:.2f} t/s)")
             
-            english_response = response['message']['content']
-            
-            # 7. Translate response back to Arabic if original query was Arabic
-            if original_language == "ar":
-                logger.info(f"[LLM SERVICE] Translating response back to Arabic...")
-                arabic_response = self.translator.translate_to_arabic(english_response)
-                return arabic_response
-            
-            return english_response
+            return response['message']['content']
             
         except Exception as e:
             logger.error(f"[LLM SERVICE] Error generating response: {e}")
             import traceback
             traceback.print_exc()
             return self._fallback_response(query, data, original_language if 'original_language' in dir() else "en")
+
+    def _detect_language(self, text: str) -> str:
+        """Detect if text is primarily Arabic or English. Returns 'ar' or 'en'."""
+        if not text:
+            return "en"
+        arabic_char_count = sum(1 for c in text if self.ARABIC_PATTERN.match(c))
+        total_alpha = sum(1 for c in text if c.isalpha())
+        if total_alpha == 0:
+            return "en"
+        arabic_ratio = arabic_char_count / total_alpha
+        return "ar" if arabic_ratio > 0.3 else "en"
 
     def _format_data_for_llm(self, data: List[Dict]) -> str:
         """Format data list into a readable string for the LLM"""

@@ -48,7 +48,7 @@ class ThinkingAgent:
         parameters = self._extract_parameters(query)
         
         # Build domain context
-        domain_context = self._build_domain_context(allowed_domains)
+        domain_context = self._build_domain_context(allowed_domains, query)
         
         result = {
             "query": query,
@@ -72,7 +72,7 @@ class ThinkingAgent:
         "projects": ["مشروع", "مشاريع", "حالة المشروع", "بيانات المشروع"],
         "sales": ["مبيعات", "إيرادات", "عميل", "فاتورة", "فواتير", "أمر بيع", "أوامر بيع", "توريد"],
         "inventory": ["مخزون", "مخازن", "كمية", "إعادة طلب"],
-        "purchasing": ["مشتريات", "مورد", "موردين", "أمر شراء", "طلب شراء"],
+        "purchasing": ["مشتريات", "مورد", "موردين", "أمر شراء", "طلب شراء", "مستحقات", "صرف", "دفع", "مدفوعات", "مستخلص"],
         "accounting": ["تكلفة", "ربح", "هامش", "مالي", "محاسبة", "ضريبة"],
     }
 
@@ -82,7 +82,8 @@ class ThinkingAgent:
         "aggregation": ["إجمالي", "مجموع", "عدد", "متوسط", "كم"],
         "trend": ["اتجاه", "شهري", "أسبوعي", "يومي", "نمو"],
         "comparison": ["مقارنة", "قارن", "بين", "فرق"],
-        "general": ["عرض", "بيانات", "كل", "اعرض", "وضح", "ما هو", "ما هي"],
+        "knowledge": ["شرح", "كيف", "لماذا", "ما هو", "تفاصيل عن", "اشرح"],
+        "general": ["عرض", "بيانات", "كل", "اعرض", "وضح", "ما هي"],
     }
 
     def _identify_domains(self, query: str) -> List[str]:
@@ -162,7 +163,7 @@ class ThinkingAgent:
             return "sql"
         
         # RAG for knowledge queries
-        if any(kw in query_lower for kw in ["explain", "what is", "how to", "why"]):
+        if query_type == "knowledge" or any(kw in query_lower for kw in ["explain", "what is", "how to", "why"]):
             return "rag"
         
         # Default to SQL
@@ -218,14 +219,49 @@ class ThinkingAgent:
         
         return params
     
-    def _build_domain_context(self, domains: List[str]) -> Dict[str, Any]:
-        """Build domain-specific context for processing"""
+    def _build_domain_context(self, domains: List[str], query: str = "") -> Dict[str, Any]:
+        """Build domain-specific context for processing with enhanced RAG-based table discovery"""
         tables = []
         sql_hints = []
         
+        # Dynamic discovery via Enhanced RAG Search Service (if available)
+        try:
+            from backend.config import DATA_SOURCE
+            if DATA_SOURCE == "database" and query:
+                try:
+                    from backend.ai_agent.rag_search_service import get_rag_search_service
+                    rag_svc = get_rag_search_service()
+                    
+                    logger.info("[THINKING AGENT] Using hybrid RAG search for table discovery")
+                    context = rag_svc.search_with_context(query, top_k=5)
+                    
+                    if context.get("discovered_tables"):
+                        tables.extend(context["discovered_tables"])
+                        logger.info(f"[THINKING AGENT] RAG discovered tables: {context['discovered_tables']}")
+                    
+                    if context.get("sql_hints"):
+                        sql_hints.extend(context["sql_hints"])
+                        
+                except ImportError:
+                    # Fallback to old vector service if RAG service not available
+                    from backend.ai_agent.vector_service import get_vector_service
+                    vector_svc = get_vector_service()
+                    if vector_svc._ready:
+                        logger.info("[THINKING AGENT] Falling back to vector search for table discovery")
+                        discovered_tables = vector_svc.find_tables(query, top_k=3)
+                        if discovered_tables:
+                            tables.extend(discovered_tables)
+                            logger.info(f"[THINKING AGENT] Discovered tables: {discovered_tables}")
+        except Exception as e:
+            logger.warning(f"[THINKING AGENT] Table discovery failed: {e}")
+            
+        # Fallback to config if no tables found (or mixed mode)
         for domain in domains:
             config = self.domain_configs.get(domain, {})
-            tables.extend(config.get("tables", []))
+            # Only add hardcoded tables if dynamic search failed or is disabled
+            if not tables:
+                tables.extend(config.get("tables", []))
+            
             if domain == "sales":
                 sql_hints.append("Use 'amount' or 'total' columns for revenue calculations")
             elif domain == "inventory":

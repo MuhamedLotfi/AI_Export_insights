@@ -35,6 +35,9 @@ class ApiService extends GetxService {
           final token = authService.token.value;
           if (token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
+            _logger.info('Auth header set (token: ${token.length} chars)', source: 'API');
+          } else {
+            _logger.warning('No auth token available for request', source: 'API');
           }
         } catch (e) {
           // AuthService not ready yet
@@ -50,16 +53,8 @@ class ApiService extends GetxService {
       onError: (error, handler) {
         _logger.error('API Error: ${error.message}', source: 'API');
         
-        // Handle 401 - Unauthorized
-        if (error.response?.statusCode == 401) {
-          try {
-            final authService = Get.find<AuthService>();
-            authService.logout();
-          } catch (e) {
-            // AuthService not available
-          }
-        }
-        
+        // Don't auto-logout from the interceptor during init
+        // Let the caller (_loadCurrentUser) handle 401 errors properly
         handler.next(error);
       },
     ));

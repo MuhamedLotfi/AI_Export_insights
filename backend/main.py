@@ -88,12 +88,28 @@ async def startup_event():
         from backend.ai_agent.data_adapter import get_adapter
         adapter = get_adapter()
         schema = adapter.get_schema()
-        logger.info(f"Data adapter initialized with tables: {list(schema.keys())}")
+        # logger.info(f"Data adapter initialized with {len(schema)} tables") - already logged by data_adapter
         
-        # Initialize AI services
-        from backend.ai_agent.ai_service import AIService
-        ai_service = AIService()
+        # Initialize AI services (singleton — preload for fast first query)
+        from backend.ai_agent.ai_service import get_ai_service
+        ai_service = get_ai_service()
         logger.info("AI Service initialized")
+        
+        # Preload VectorService (loads embedding model once at startup)
+        try:
+            from backend.ai_agent.vector_service import get_vector_service
+            vs = get_vector_service()
+            logger.info(f"VectorService preloaded (ready={vs._ready})")
+        except Exception as e:
+            logger.warning(f"VectorService preload skipped: {e}")
+        
+        # Preload LLMService (singleton)
+        try:
+            from backend.ai_agent.llm_service import get_llm_service
+            get_llm_service()
+            logger.info("LLMService preloaded")
+        except Exception as e:
+            logger.warning(f"LLMService preload skipped: {e}")
         
     except Exception as e:
         logger.error(f"Error during startup: {e}")
@@ -143,6 +159,70 @@ def get_status():
         "tables": tables,
         "record_counts": record_counts
     }
+
+
+# ── RAG Search Test Endpoints ─────────────────────────────────────────
+
+@app.get("/api/rag/search", tags=["RAG Search (Test)"])
+def rag_search_test(query: str, top_k: int = 10, table_filter: str = None):
+    """
+    Test endpoint: Compare old (pure vector) vs new (hybrid RAG) search results.
+    Use this for side-by-side quality comparison before switching to the new engine.
+    """
+    try:
+        from backend.ai_agent.vector_service import get_vector_service
+        from backend.ai_agent.rag_search_service import get_rag_search_service
+
+        vector_svc = get_vector_service()
+        rag_svc = get_rag_search_service()
+
+        # Old: pure vector search
+        old_results = vector_svc.semantic_search(query, top_k=top_k, table_filter=table_filter)
+        old_formatted = []
+        for r in old_results:
+            tn = r.get("table_name", "")
+            if tn == "__schema_metadata__":
+                continue
+            old_formatted.append({
+                "table": tn,
+                "row_id": r.get("row_id", ""),
+                "similarity": round(float(r.get("similarity", 0)), 4),
+                "content": r.get("content_text", "")[:200],
+            })
+
+        # New: hybrid RAG search
+        new_results = rag_svc.search(query, top_k=top_k, table_filter=table_filter)
+        new_formatted = [r.to_dict() for r in new_results]
+        # Truncate content for response
+        for r in new_formatted:
+            r["content"] = r["content"][:200]
+
+        return {
+            "query": query,
+            "old_search": {
+                "method": "pure_vector",
+                "result_count": len(old_formatted),
+                "results": old_formatted,
+            },
+            "new_search": {
+                "method": "hybrid_rag",
+                "weights": {"vector": rag_svc.w_vector, "keyword": rag_svc.w_keyword, "table": rag_svc.w_table},
+                "result_count": len(new_formatted),
+                "results": new_formatted,
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/rag/stats", tags=["RAG Search (Test)"])
+def rag_stats():
+    """Get vector database statistics."""
+    try:
+        from backend.ai_agent.vector_service import get_vector_service
+        return get_vector_service().get_stats()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Run application

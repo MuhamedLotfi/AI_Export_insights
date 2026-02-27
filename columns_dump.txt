@@ -1,0 +1,9 @@
+
+--- Contracts Columns ---
+['Id', 'ImportId', 'ContractNumber', 'AssignmentOrderNumber', 'AssignmentOrderName', 'RelatedAssignmentOrderId', 'ContractCopyNumber', 'ReceiptDate', 'AdvancePaymentDate', 'SiteHandoverDate', 'SiteHandoverReportText', 'SiteHandoverReportImageId', 'ContractNumberWithEntity', 'ContractDateWithEntity', 'ReceivingOrderId', 'IdGuid', 'Created', 'CreatedBy', 'Modified', 'ModifiedBy', 'IsDeleted']
+
+--- LookupItems Columns ---
+['Id', 'LookupId', 'Code', 'Description', 'Value', 'IsActive', 'SortOrder', 'IdGuid', 'Created', 'CreatedBy', 'Modified', 'ModifiedBy', 'IsDeleted', 'NameAR', 'NameEN']
+
+--- CompanyContracts Columns ---
+['Id', 'OperationId', 'FiscalYear', 'TenderTypeNameAR', 'ContractTypeNameAR', 'ContractNumberWithEntity', 'ContractDateWithEntity', 'ReceiptDate', 'IdGuid', 'Created', 'CreatedBy', 'Modified', 'ModifiedBy', 'IsDeleted', 'EntityId', 'RequestId']

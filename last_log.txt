@@ -1,0 +1,80 @@
+2026-02-25 22:28:26,970 - backend.main - INFO - Backend ready!
+2026-02-25 22:28:26,970 - backend.main - INFO - ============================================================
+2026-02-25 22:31:38,685 - backend.main - INFO - ============================================================
+2026-02-25 22:31:38,686 - backend.main - INFO - Starting AI Export Insights Backend...
+2026-02-25 22:31:38,686 - backend.main - INFO - ============================================================
+2026-02-25 22:31:38,969 - backend.ai_agent.database_service - INFO - Database engine ready: ERP_AI@localhost:5432
+2026-02-25 22:31:38,970 - backend.ai_agent.data_adapter - INFO - DatabaseAdapter connected to PostgreSQL
+2026-02-25 22:31:39,186 - backend.ai_agent.data_adapter - INFO - Database schema loaded: 110 tables
+2026-02-25 22:31:39,196 - backend.main - INFO - Data adapter initialized with tables: ['__EFMigrationsHistory', 'AssignmentOrders', 'Clauses', 'users', 'user_agents', 'conversations', 'feedback', 'agents', 'embeddings', 'session_summaries', 'user_preferences', 'InsurancePaymentFiles', 'AssignmentOrderSub', 'CompanyContractItems', 'CompanyContracts', 'CompanyContractTerms', 'CompanyInvoiceItems', 'CompanyInvoices', 'CompletionRequestFiles', 'Entities', 'FeeNotificationDelivers', 'Files', 'Imports', 'IndicativeOfferItems', 'OperationClauses', 'Operations', 'Outgoings', 'Requests', 'CompletionRequests', 'Contracts', 'Documents', 'EntityInvoiceCompanyInvoices', 'EntityInvoiceFile', 'EntityInvoiceItems', 'EntityInvoices', 'EstimatedMeasurements', 'FeeNotificationCompanies', 'FeeNotificationDeliverFile', 'FeeNotificationItems', 'FeeNotifications', 'FeeNotificationTerms', 'GlobalTerms', 'ImportFiles', 'IndicativeOfferTerms', 'IndicativeQuotationFiles', 'IndicativeQuotations', 'InsurancePayments', 'LegalArticleParagraphs', 'LegalArticles', 'MemoActivities', 'Memos', 'OperationFiles', 'OperationTimelines', 'OperationTypeColumnStructures', 'OutgoingFiles', 'PaymentOrderClaimItems', 'PaymentOrderClaims', 'PaymentOrderDeductions', 'PaymentOrderInvoiceItems', 'PaymentOrderInvoices', 'PaymentOrderOperations', 'PriceOfferFiles', 'PriceOffers', 'ReceivingOrders', 'Departments', 'LookupItems', 'Lookups', 'PaymentOrders', 'RequestForIndicativeQuotations', 'Users', 'RequestAssignees', 'RolePermissions', 'UserRoles', 'PriceOfferItems', 'PriceOfferTerms', 'PriceQuoteFiles', 'PriceQuotes', 'ProceduralRecords', 'ProcedureCommitteeMembers', 'ProcedureFiles', 'Procedures', 'ReceivingOrderItems', 'ReceivingOrderTerms', 'RequestComments', 'RequestForIndicativeQuotationFiles', 'RequestForIndicativeQuotationImportClauses', 'RequestForIndicativeQuotationTerms', 'Requirements', 'ScheduleItems', 'Schedules', 'SLADefinitions', 'SubtractionNoteCompanies', 'SubtractionNoteDelegatedMembers', 'SubtractionNoteItems', 'SubtractionNotes', 'TaxExemptionInvoices', 'TaxExemptions', 'TemplateParameters', 'Templates', 'Visas', 'WorkflowHistories', 'WorkflowInstances', 'Workflows', 'WorkflowStages', 'Permissions', 'ProceduralRecordItems', 'RequestTasks', 'Roles', 'IndicativeOffers', 'OperationTerms']
+2026-02-25 22:31:39,261 - backend.ai_agent.ai_service - INFO - AIService initialized
+2026-02-25 22:31:39,261 - backend.main - INFO - AI Service initialized
+2026-02-25 22:31:39,264 - backend.main - INFO - ============================================================
+2026-02-25 22:31:39,264 - backend.main - INFO - Backend ready!
+2026-02-25 22:31:39,265 - backend.main - INFO - ============================================================
+2026-02-25 22:35:20,276 - backend.main - INFO - ============================================================
+2026-02-25 22:35:20,276 - backend.main - INFO - Starting AI Export Insights Backend...
+2026-02-25 22:35:20,277 - backend.main - INFO - ============================================================
+2026-02-25 22:35:20,565 - backend.ai_agent.database_service - INFO - Database engine ready: ERP_AI@localhost:5432
+2026-02-25 22:35:20,565 - backend.ai_agent.data_adapter - INFO - DatabaseAdapter connected to PostgreSQL
+2026-02-25 22:35:20,789 - backend.ai_agent.data_adapter - INFO - Database schema loaded: 110 tables
+2026-02-25 22:35:20,790 - backend.main - INFO - Data adapter initialized with tables: ['__EFMigrationsHistory', 'AssignmentOrders', 'Clauses', 'users', 'user_agents', 'conversations', 'feedback', 'agents', 'embeddings', 'session_summaries', 'user_preferences', 'InsurancePaymentFiles', 'AssignmentOrderSub', 'CompanyContractItems', 'CompanyContracts', 'CompanyContractTerms', 'CompanyInvoiceItems', 'CompanyInvoices', 'CompletionRequestFiles', 'Entities', 'FeeNotificationDelivers', 'Files', 'Imports', 'IndicativeOfferItems', 'OperationClauses', 'Operations', 'Outgoings', 'Requests', 'CompletionRequests', 'Contracts', 'Documents', 'EntityInvoiceCompanyInvoices', 'EntityInvoiceFile', 'EntityInvoiceItems', 'EntityInvoices', 'EstimatedMeasurements', 'FeeNotificationCompanies', 'FeeNotificationDeliverFile', 'FeeNotificationItems', 'FeeNotifications', 'FeeNotificationTerms', 'GlobalTerms', 'ImportFiles', 'IndicativeOfferTerms', 'IndicativeQuotationFiles', 'IndicativeQuotations', 'InsurancePayments', 'LegalArticleParagraphs', 'LegalArticles', 'MemoActivities', 'Memos', 'OperationFiles', 'OperationTimelines', 'OperationTypeColumnStructures', 'OutgoingFiles', 'PaymentOrderClaimItems', 'PaymentOrderClaims', 'PaymentOrderDeductions', 'PaymentOrderInvoiceItems', 'PaymentOrderInvoices', 'PaymentOrderOperations', 'PriceOfferFiles', 'PriceOffers', 'ReceivingOrders', 'Departments', 'LookupItems', 'Lookups', 'PaymentOrders', 'RequestForIndicativeQuotations', 'Users', 'RequestAssignees', 'RolePermissions', 'UserRoles', 'PriceOfferItems', 'PriceOfferTerms', 'PriceQuoteFiles', 'PriceQuotes', 'ProceduralRecords', 'ProcedureCommitteeMembers', 'ProcedureFiles', 'Procedures', 'ReceivingOrderItems', 'ReceivingOrderTerms', 'RequestComments', 'RequestForIndicativeQuotationFiles', 'RequestForIndicativeQuotationImportClauses', 'RequestForIndicativeQuotationTerms', 'Requirements', 'ScheduleItems', 'Schedules', 'SLADefinitions', 'SubtractionNoteCompanies', 'SubtractionNoteDelegatedMembers', 'SubtractionNoteItems', 'SubtractionNotes', 'TaxExemptionInvoices', 'TaxExemptions', 'TemplateParameters', 'Templates', 'Visas', 'WorkflowHistories', 'WorkflowInstances', 'Workflows', 'WorkflowStages', 'Permissions', 'ProceduralRecordItems', 'RequestTasks', 'Roles', 'IndicativeOffers', 'OperationTerms']
+2026-02-25 22:35:20,854 - backend.ai_agent.ai_service - INFO - AIService initialized
+2026-02-25 22:35:20,855 - backend.main - INFO - AI Service initialized
+2026-02-25 22:35:20,855 - backend.main - INFO - ============================================================
+2026-02-25 22:35:20,855 - backend.main - INFO - Backend ready!
+2026-02-25 22:35:20,856 - backend.main - INFO - ============================================================
+2026-02-25 22:36:59,936 - backend.ai_agent.ai_service - INFO - AIService initialized
+2026-02-25 22:37:00,190 - backend.ai_agent.agents.thinking_agent - INFO - [THINKING AGENT] Analyzing query: اذكر صرف مستحقات الضباط
+2026-02-25 22:37:00,192 - backend.ai_agent.agents.thinking_agent - INFO - [THINKING AGENT] Using hybrid RAG search for table discovery
+2026-02-25 22:37:06,906 - backend.ai_agent.vector_service - INFO - Loading local embedding model: BAAI/bge-m3...
+2026-02-25 22:37:06,914 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-02-25 22:37:06,914 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: BAAI/bge-m3
+2026-02-25 22:37:11,949 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/modules.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:12,225 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/modules.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:12,699 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/config_sentence_transformers.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:12,966 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/config_sentence_transformers.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:13,437 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/config_sentence_transformers.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:13,702 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/config_sentence_transformers.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:14,181 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:14,453 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/README.md "HTTP/1.1 200 OK"
+2026-02-25 22:37:14,944 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/modules.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:15,238 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/modules.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:15,745 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/sentence_bert_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:16,044 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/sentence_bert_config.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:16,545 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/adapter_config.json "HTTP/1.1 404 Not Found"
+2026-02-25 22:37:17,059 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:17,353 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/config.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:17,869 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-02-25 22:37:18,345 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/BAAI/bge-m3 "HTTP/1.1 200 OK"
+2026-02-25 22:37:18,884 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/BAAI/bge-m3/commits/main "HTTP/1.1 200 OK"
+2026-02-25 22:37:19,026 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:19,242 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/config.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:19,389 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/BAAI/bge-m3/discussions?p=0 "HTTP/1.1 200 OK"
+2026-02-25 22:37:19,677 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:19,902 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:19,949 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/BAAI/bge-m3/commits/refs%2Fpr%2F130 "HTTP/1.1 200 OK"
+2026-02-25 22:37:20,352 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/BAAI/bge-m3/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-02-25 22:37:20,476 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/refs%2Fpr%2F130/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-02-25 22:37:20,812 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/BAAI/bge-m3/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-02-25 22:37:21,297 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/refs%2Fpr%2F130/model.safetensors "HTTP/1.1 302 Found"
+2026-02-25 22:37:23,257 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/BAAI/bge-m3 "HTTP/1.1 200 OK"
+2026-02-25 22:37:23,713 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/BAAI/bge-m3/resolve/main/1_Pooling/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-02-25 22:37:23,950 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/BAAI/bge-m3/5617a9f61b028005a4858fdac845db406aefb181/1_Pooling%2Fconfig.json "HTTP/1.1 200 OK"
+2026-02-25 22:37:24,421 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/BAAI/bge-m3 "HTTP/1.1 200 OK"
+2026-02-25 22:37:24,426 - backend.ai_agent.vector_service - INFO - Local model loaded successfully.
+2026-02-25 22:37:24,444 - backend.ai_agent.vector_service - INFO - VectorService ready (model=BAAI/bge-m3, dim=1024, provider=huggingface, index=HNSW)
+2026-02-25 22:37:25,157 - backend.ai_agent.data_adapter - INFO - Database schema loaded: 110 tables
+2026-02-25 22:37:25,158 - backend.ai_agent.agents.thinking_agent - INFO - [THINKING AGENT] RAG discovered tables: ['AssignmentOrderSub', 'Departments']
+2026-02-25 22:37:25,158 - backend.ai_agent.agents.thinking_agent - INFO - [THINKING AGENT] Result: tool=sql, domains=['projects'], type=general
+2026-02-25 22:37:25,160 - backend.ai_agent.agents.processing_agent - INFO - [PROCESSING AGENT] Executing tool: sql
+2026-02-25 22:37:25,160 - backend.ai_agent.agents.processing_agent - INFO - [PROCESSING AGENT] Domain context: {'tables': ['AssignmentOrderSub', 'Departments'], 'sql_hints': [], 'primary_domain': 'projects'}
+2026-02-25 22:37:26,187 - backend.ai_agent.agents.processing_agent - INFO - [PROCESSING AGENT] Restricting SQL Agent to tables: ['AssignmentOrderSub', 'Departments']
+2026-02-25 22:37:26,468 - backend.ai_agent.agents.processing_agent - INFO - [PROCESSING AGENT] Using LangChain SQL Agent
+2026-02-25 22:37:42,153 - backend.ai_agent.agents.visualization_agent - INFO - [VISUALIZATION AGENT] Generating chart for 1 data points
+2026-02-25 22:37:42,154 - backend.ai_agent.agents.visualization_agent - WARNING - [VISUALIZATION AGENT] Could not identify label or value columns
+2026-02-25 22:37:42,183 - backend.ai_agent.llm_service - INFO - LLMService initialized with model: gemma3:latest, output_language: ar
+2026-02-25 22:37:42,183 - backend.ai_agent.agents.coordinator_agent - INFO - [COORDINATOR AGENT] Formatting final response
+2026-02-25 22:37:42,184 - backend.ai_agent.llm_service - INFO - [LLM SERVICE] Calling gemma3:latest with 2 messages
+2026-02-25 22:37:48,745 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 22:37:48,746 - backend.ai_agent.llm_service - INFO - [LLM STATS] Generated 135 tokens in 1.92s (70.40 t/s)

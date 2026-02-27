@@ -1,7 +1,7 @@
 # Core Framework
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-pydantic==2.5.3
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.3
 
 # Authentication
 python-jose[cryptography]==3.3.0
@@ -13,9 +13,20 @@ httpx==0.26.0
 aiohttp==3.9.1
 
 # AI & LangGraph
-langchain==0.1.0
-langgraph==0.0.25
-ollama==0.1.6
+langchain>=0.1.0
+langgraph>=0.0.25
+ollama>=0.1.6
+langchain-community>=0.0.10
+langchain-openai>=0.0.2
+sentence-transformers>=2.2.2
+torch>=2.0.0
+
+# Database & SQL
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# Vector Search (pgvector)
+pgvector>=0.2.0
 
 # Data Processing
 pandas==2.1.4

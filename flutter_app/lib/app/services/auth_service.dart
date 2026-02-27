@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/services/api_service.dart';
 import '../data/services/log_service.dart';
 import '../routes/app_routes.dart';
@@ -9,7 +9,7 @@ import '../models/user_model.dart';
 import '../models/domain_agent.dart';
 
 class AuthService extends GetxService {
-  final _storage = const FlutterSecureStorage();
+  late final SharedPreferences _prefs;
   final _logger = LogService.instance;
   
   final RxString token = ''.obs;
@@ -19,11 +19,18 @@ class AuthService extends GetxService {
   final RxBool isLoading = false.obs;
   
   Future<AuthService> init() async {
+    // Use SharedPreferences (persists to localStorage on web)
+    _prefs = await SharedPreferences.getInstance();
+    
     // Load saved token
-    final savedToken = await _storage.read(key: 'auth_token');
+    final savedToken = _prefs.getString('auth_token');
+    _logger.info('Token from storage: ${savedToken != null ? "found (${savedToken.length} chars)" : "not found"}', source: 'Auth');
     if (savedToken != null && savedToken.isNotEmpty) {
       token.value = savedToken;
-      await _loadCurrentUser();
+      _logger.info('Token set on service, calling /auth/me...', source: 'Auth');
+      await _loadCurrentUser(navigate: false);
+    } else {
+      _logger.info('No saved token, user needs to login', source: 'Auth');
     }
     return this;
   }
@@ -50,7 +57,7 @@ class AuthService extends GetxService {
         token.value = data['access_token'];
         
         // Save token
-        await _storage.write(key: 'auth_token', value: token.value);
+        await _prefs.setString('auth_token', token.value);
         
         // Load user data
         currentUser.value = User.fromJson(data['user']);
@@ -97,7 +104,7 @@ class AuthService extends GetxService {
     return false;
   }
   
-  Future<void> _loadCurrentUser() async {
+  Future<void> _loadCurrentUser({bool navigate = true}) async {
     try {
       final apiService = Get.find<ApiService>();
       
@@ -108,24 +115,35 @@ class AuthService extends GetxService {
         userAgents.value = List<String>.from(response.data['domain_agents'] ?? []);
         isAuthenticated.value = true;
         _logger.info('User loaded: ${currentUser.value?.username}', source: 'Auth');
+      } else {
+        // If status is not 200, we might have an invalid token
+        _logger.warning('Failed to load user, status: ${response.statusCode}', source: 'Auth');
+        if (response.statusCode == 401) {
+          await logout(navigate: navigate);
+        }
       }
     } catch (e) {
       _logger.error('Failed to load user: $e', source: 'Auth');
-      await logout();
+      // Only logout if it's an auth error, not a network error
+      if (e is DioException && e.response?.statusCode == 401) {
+        await logout(navigate: navigate);
+      }
     }
   }
   
-  Future<void> logout() async {
+  Future<void> logout({bool navigate = true}) async {
     token.value = '';
     currentUser.value = null;
     userAgents.value = [];
     isAuthenticated.value = false;
     
-    await _storage.delete(key: 'auth_token');
+    await _prefs.remove('auth_token');
     
     _logger.info('User logged out', source: 'Auth');
     
-    Get.offAllNamed(AppRoutes.login);
+    if (navigate && Get.context != null) {
+      Get.offAllNamed(AppRoutes.login);
+    }
   }
   
   String getInitialRoute() {

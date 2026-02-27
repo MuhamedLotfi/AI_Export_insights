@@ -23,10 +23,11 @@ class CoordinatorAgent:
         thinking_result: Dict[str, Any],
         processing_result: Dict[str, Any],
         visualization: Dict[str, Any],
-        history: List[Dict] = []
+        memory_context: Dict[str, Any] = {}
     ) -> Dict[str, Any]:
         """
-        Coordinate all agent results into a final response
+        Coordinate all agent results into a final response.
+        memory_context comes from MemoryManager.build_memory_context().
         """
         logger.info("[COORDINATOR AGENT] Formatting final response")
         
@@ -35,13 +36,19 @@ class CoordinatorAgent:
         row_count = processing_result.get("row_count", 0)
         tool_used = processing_result.get("tool_used", "unknown")
         
-        # Build context for LLM
+        # Build context for LLM — includes memory layers
         context = {
             "query_type": thinking_result.get("query_type"),
             "allowed_domains": thinking_result.get("allowed_domains", []),
             "tool_used": tool_used,
             "tool_query": processing_result.get("generated_query", ""),
-            "history": history
+            # Memory layers from MemoryManager
+            "conversation_history": memory_context.get("conversation_history", []),
+            "session_summary": memory_context.get("session_summary", ""),
+            "cross_session_context": memory_context.get("cross_session_context", ""),
+            "user_preferences": memory_context.get("user_preferences", ""),
+            # Legacy compat
+            "history": memory_context.get("conversation_history", []),
         }
         
         # Generate answer via LLM

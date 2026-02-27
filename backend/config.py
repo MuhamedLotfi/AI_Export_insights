@@ -16,7 +16,7 @@ JWT_EXPIRATION_HOURS = 24
 
 # Data Source Configuration
 # Options: "json", "database"
-DATA_SOURCE = os.getenv("DATA_SOURCE", "json")
+DATA_SOURCE = os.getenv("DATA_SOURCE", "database")
 
 # JSON Data Paths
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -33,13 +33,22 @@ JSON_FILES = {
     "project_59": os.path.join(DATA_DIR, "project_59.json"),
 }
 
-# Database Configuration (for future use)
+# Database Configuration
 PG_CONFIG = {
     "host": os.getenv("PG_HOST", "localhost"),
     "port": int(os.getenv("PG_PORT", "5432")),
-    "database": os.getenv("PG_DATABASE", "ai_export_insights"),
+    "database": os.getenv("PG_DATABASE", "ERP_AI"),
     "user": os.getenv("PG_USER", "postgres"),
-    "password": os.getenv("PG_PASSWORD", "postgres"),
+    "password": os.getenv("PG_PASSWORD", "postgres_erp"),
+}
+
+# Vector Search Configuration (pgvector)
+VECTOR_CONFIG = {
+    # Using BAAI/bge-m3 as requested (Dimensions: 1024)
+    "embedding_model": os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3"),
+    "embedding_dimensions": int(os.getenv("EMBEDDING_DIMENSIONS", "1024")),
+    "embedding_provider": os.getenv("EMBEDDING_PROVIDER", "huggingface"), # "ollama" or "huggingface"
+    "enabled": os.getenv("VECTOR_SEARCH_ENABLED", "true").lower() == "true",
 }
 
 # AI Configuration
@@ -50,14 +59,13 @@ AI_CONFIG = {
     "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
     "openai_model": os.getenv("OPENAI_MODEL", "gpt-4"),
     "ollama_options": {
-        "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),  # Reduced for speed
+        "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "12288")),  # Increased for SQL Agent schema
         "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "512")),  # Limit output length
         "temperature": 0.7,
         "seed": 42,
     },
-    # Translation settings (TranslateGemma for Arabic support)
-    "translation_model": os.getenv("TRANSLATION_MODEL", "translategemma:4b"),
-    "translation_enabled": os.getenv("TRANSLATION_ENABLED", "true").lower() == "true",
+    # Output language (multilingual embedding model handles Arabic natively)
+    "output_language": os.getenv("OUTPUT_LANGUAGE", "ar"),  # "ar" for Arabic, "en" for English
 }
 
 # LangGraph Configuration
@@ -75,37 +83,51 @@ DOMAIN_AGENTS = {
         "name": "Sales Analytics Agent",
         "description": "Analyzes sales data, revenue trends, and customer behavior",
         "icon": "trending_up",
-        "tables": ["sales", "items", "project_59"],
         "keywords": ["sales", "revenue", "sold", "customer", "top items", "project", "contract", "opportunity"],
     },
     "inventory": {
         "name": "Inventory Management Agent",
         "description": "Monitors stock levels, reorder points, and warehouse operations",
         "icon": "inventory_2",
-        "tables": ["inventory", "items"],
         "keywords": ["inventory", "stock", "warehouse", "reorder", "quantity"],
     },
     "purchasing": {
         "name": "Purchasing Agent",
         "description": "Manages vendor analysis, purchase orders, and procurement",
         "icon": "shopping_cart",
-        "tables": ["purchasing", "vendors", "project_59"],
         "keywords": ["purchase", "vendor", "supplier", "lead time", "order"],
     },
     "accounting": {
         "name": "Accounting Agent",
         "description": "Handles financial analysis, costs, margins, and profitability",
         "icon": "account_balance",
-        "tables": ["items", "costs", "project_59"],
         "keywords": ["cost", "margin", "profit", "pricing", "financial"],
     },
     "projects": {
         "name": "Project Analytics Agent",
         "description": "Tracks project performance, status, and profitability",
         "icon": "assignment",
-        "tables": ["project_59", "sales", "purchasing"],
         "keywords": ["project", "status", "profitability", "completion", "contract"],
     },
+}
+
+# ─── Memory Management Configuration ───────────────────────────
+MEMORY_CONFIG = {
+    # Token budget for recent conversation history
+    "history_token_budget": int(os.getenv("MEMORY_HISTORY_TOKEN_BUDGET", "1500")),
+    # Rolling summarization
+    "enable_summarization": os.getenv("MEMORY_ENABLE_SUMMARIZATION", "true").lower() == "true",
+    "summarize_every_n_turns": int(os.getenv("MEMORY_SUMMARIZE_EVERY_N_TURNS", "3")),
+    "summary_token_budget": int(os.getenv("MEMORY_SUMMARY_TOKEN_BUDGET", "300")),
+    # Cross-session retrieval
+    "enable_cross_session": os.getenv("MEMORY_ENABLE_CROSS_SESSION", "true").lower() == "true",
+    "cross_session_top_k": int(os.getenv("MEMORY_CROSS_SESSION_TOP_K", "3")),
+    "cross_session_token_budget": int(os.getenv("MEMORY_CROSS_SESSION_TOKEN_BUDGET", "400")),
+    # User preference learning
+    "enable_user_preferences": os.getenv("MEMORY_ENABLE_USER_PREFERENCES", "true").lower() == "true",
+    "max_preferences": int(os.getenv("MEMORY_MAX_PREFERENCES", "10")),
+    # Feedback-driven learning
+    "enable_feedback_learning": os.getenv("MEMORY_ENABLE_FEEDBACK_LEARNING", "true").lower() == "true",
 }
 
 # Logging Configuration

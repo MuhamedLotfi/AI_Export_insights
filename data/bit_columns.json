@@ -1,0 +1,346 @@
+{
+  "AssignmentOrders": [
+    "IsDeleted"
+  ],
+  "AssignmentOrderSub": [
+    "IsDeleted"
+  ],
+  "Clauses": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "CompanyContractItems": [
+    "IsAvailable",
+    "IsFree",
+    "IsDeleted"
+  ],
+  "CompanyContracts": [
+    "IsDeleted"
+  ],
+  "CompanyContractTerms": [
+    "IsCustom",
+    "IsDeleted"
+  ],
+  "CompanyInvoiceItems": [
+    "IsDeleted"
+  ],
+  "CompanyInvoices": [
+    "IsDeleted"
+  ],
+  "CompletionRequestFiles": [
+    "IsDeleted"
+  ],
+  "CompletionRequests": [
+    "IsSendBackCommentResolved",
+    "IsPostponed",
+    "IsDeleted"
+  ],
+  "Contracts": [
+    "IsDeleted"
+  ],
+  "Departments": [
+    "IsDeleted"
+  ],
+  "Documents": [
+    "IsDeleted"
+  ],
+  "Entities": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "EntityInvoiceCompanyInvoices": [
+    "IsDeleted"
+  ],
+  "EntityInvoiceFile": [
+    "IsDeleted"
+  ],
+  "EntityInvoiceItems": [
+    "IsPaid",
+    "IsDeleted"
+  ],
+  "EntityInvoices": [
+    "IsPaid",
+    "IsDeleted"
+  ],
+  "EstimatedMeasurements": [
+    "IsCompleted",
+    "IsDeleted"
+  ],
+  "FeeNotificationCompanies": [
+    "IsDeleted"
+  ],
+  "FeeNotificationDeliverFile": [
+    "IsDeleted"
+  ],
+  "FeeNotificationDelivers": [
+    "IsDeleted"
+  ],
+  "FeeNotificationItems": [
+    "IsAvailable",
+    "IsFree",
+    "IsDeleted"
+  ],
+  "FeeNotifications": [
+    "IsDeleted"
+  ],
+  "FeeNotificationTerms": [
+    "IsCustom",
+    "IsDeleted"
+  ],
+  "Files": [
+    "IsDeleted"
+  ],
+  "GlobalTerms": [
+    "IsRequired",
+    "IsActive",
+    "IsDeleted"
+  ],
+  "ImportFiles": [
+    "IsDeleted"
+  ],
+  "Imports": [
+    "ReceiveOriginal",
+    "IsDeleted"
+  ],
+  "IndicativeOfferItems": [
+    "IsAvailable",
+    "IsFree",
+    "IsDeleted"
+  ],
+  "IndicativeOffers": [
+    "IsDeleted",
+    "AddedFromSubtraction"
+  ],
+  "IndicativeOfferTerms": [
+    "IsCustom",
+    "IsDeleted"
+  ],
+  "IndicativeQuotationFiles": [
+    "IsDeleted"
+  ],
+  "IndicativeQuotations": [
+    "IsDeleted"
+  ],
+  "InsurancePaymentFiles": [
+    "IsDeleted"
+  ],
+  "InsurancePayments": [
+    "IsDeleted"
+  ],
+  "LegalArticleParagraphs": [
+    "IsDeleted"
+  ],
+  "LegalArticles": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "LookupItems": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "Lookups": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "MemoActivities": [
+    "IsDeleted"
+  ],
+  "Memos": [
+    "IsDeleted"
+  ],
+  "OperationClauses": [
+    "IsDeleted"
+  ],
+  "OperationFiles": [
+    "IsDeleted"
+  ],
+  "Operations": [
+    "IsPostponed",
+    "IsDeleted"
+  ],
+  "OperationTerms": [
+    "IsCustom",
+    "IsAvailable",
+    "IsDeleted"
+  ],
+  "OperationTimelines": [
+    "IsDeleted"
+  ],
+  "OperationTypeColumnStructures": [
+    "IsDeleted"
+  ],
+  "OutgoingFiles": [
+    "IsDeleted"
+  ],
+  "Outgoings": [
+    "IsDeleted"
+  ],
+  "PaymentOrderClaimItems": [
+    "IsDeleted"
+  ],
+  "PaymentOrderClaims": [
+    "IsProcessed",
+    "IsDeleted"
+  ],
+  "PaymentOrderDeductions": [
+    "IsDeleted"
+  ],
+  "PaymentOrderInvoiceItems": [
+    "IsPreviouslyPaid",
+    "IsDeleted"
+  ],
+  "PaymentOrderInvoices": [
+    "IsPartialInvoice",
+    "IsDeleted"
+  ],
+  "PaymentOrderOperations": [
+    "IsDeleted"
+  ],
+  "PaymentOrders": [
+    "IsSendBackCommentResolved",
+    "IsDeleted"
+  ],
+  "Permissions": [
+    "IsDeleted"
+  ],
+  "PriceOfferFiles": [
+    "IsDeleted"
+  ],
+  "PriceOfferItems": [
+    "IsDeleted"
+  ],
+  "PriceOffers": [
+    "IsDeleted"
+  ],
+  "PriceOfferTerms": [
+    "IsCustom",
+    "IsDeleted"
+  ],
+  "PriceQuoteFiles": [
+    "IsDeleted"
+  ],
+  "PriceQuotes": [
+    "IsDeleted"
+  ],
+  "ProceduralRecordItems": [
+    "IsDeleted",
+    "IsBestOffer"
+  ],
+  "ProceduralRecords": [
+    "IsDeleted"
+  ],
+  "ProcedureCommitteeMembers": [
+    "IsDeleted"
+  ],
+  "ProcedureFiles": [
+    "IsDeleted"
+  ],
+  "Procedures": [
+    "IsDeleted"
+  ],
+  "ReceivingOrderItems": [
+    "IsDeleted"
+  ],
+  "ReceivingOrders": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "ReceivingOrderTerms": [
+    "IsCustom",
+    "IsMatched",
+    "IsDeleted"
+  ],
+  "RequestAssignees": [
+    "IsDeleted"
+  ],
+  "RequestComments": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "RequestForIndicativeQuotationFiles": [
+    "IsDeleted"
+  ],
+  "RequestForIndicativeQuotationImportClauses": [
+    "IsDeleted"
+  ],
+  "RequestForIndicativeQuotations": [
+    "IsSendBackCommentResolved",
+    "IsDeleted"
+  ],
+  "RequestForIndicativeQuotationTerms": [
+    "IsCustom",
+    "IsDeleted"
+  ],
+  "Requests": [
+    "IsDeleted"
+  ],
+  "RequestTasks": [
+    "IsPending",
+    "IsDeleted"
+  ],
+  "Requirements": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "Roles": [
+    "IsDeleted"
+  ],
+  "ScheduleItems": [
+    "IsCompleted",
+    "IsDeleted"
+  ],
+  "Schedules": [
+    "IsDeleted"
+  ],
+  "SLADefinitions": [
+    "IsDeleted"
+  ],
+  "SubtractionNoteCompanies": [
+    "IsDeleted"
+  ],
+  "SubtractionNoteDelegatedMembers": [
+    "IsDeleted"
+  ],
+  "SubtractionNoteItems": [
+    "IsDeleted"
+  ],
+  "SubtractionNotes": [
+    "IsCompleted",
+    "IsSendBackCommentResolved",
+    "IsDeleted"
+  ],
+  "TaxExemptionInvoices": [
+    "IsDeleted"
+  ],
+  "TaxExemptions": [
+    "IsDeleted"
+  ],
+  "TemplateParameters": [
+    "IsRequired",
+    "IsDeleted"
+  ],
+  "Templates": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "Users": [
+    "IsActive",
+    "IsDeleted"
+  ],
+  "Visas": [
+    "IsDeleted"
+  ],
+  "WorkflowHistories": [
+    "IsDeleted"
+  ],
+  "WorkflowInstances": [
+    "IsDeleted"
+  ],
+  "Workflows": [
+    "HasInternalMemorandum",
+    "IsDeleted"
+  ],
+  "WorkflowStages": [
+    "IsDeleted"
+  ]
+}

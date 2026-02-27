@@ -33,33 +33,28 @@ class AIService:
         """
         start_time = datetime.now()
         
-        try:
-            # Get user's allowed agents
-            user_agents = self.auth_service.get_user_domain_agents(user_id)
+        if not conversation_id:
+            conversation_id = f"session_{int(datetime.now().timestamp() * 1000)}"
             
-            if not user_agents:
-                return {
-                    "answer": "You don't have access to any AI agents. Please contact an administrator.",
-                    "error": True,
-                    "metadata": {"user_id": user_id}
-                }
+        try:
+            # Bypass agent checks for now as requested by user
+            all_agents = self.auth_service.get_all_domain_agents()
+            user_agents = [a.get("code", "") for a in all_agents]
             
             # Route query to determine required domains
             from backend.ai_agent.agents.thinking_agent import ThinkingAgent
             thinking_agent = ThinkingAgent()
             thinking_result = await thinking_agent.analyze(query, user_agents)
             
-            # Validate access
+            # Validate access bypass
             required_domains = thinking_result.get("required_domains", [])
-            access_validation = self.auth_service.validate_agent_access(user_id, required_domains)
             
-            if not access_validation["has_access"] and not access_validation["partial_access"]:
-                return {
-                    "answer": f"You don't have access to the required domains: {access_validation['blocked_agents']}",
-                    "error": True,
-                    "blocked_agents": access_validation["blocked_agents"],
-                    "metadata": {"user_id": user_id}
-                }
+            access_validation = {
+                "allowed_agents": required_domains if required_domains else user_agents,
+                "blocked_agents": [],
+                "has_access": True,
+                "partial_access": False
+            }
             
             # Process with allowed agents only
             from backend.ai_agent.agents.processing_agent import ProcessingAgent
@@ -78,10 +73,26 @@ class AIService:
                 data=processing_result.get("data", [])
             )
             
-            # Get history for context
-            history = []
+            # ── Build memory context via MemoryManager ──
+            memory_ctx = {}
             if conversation_id:
-                history = self.get_session_messages(user_id, conversation_id)
+                try:
+                    from backend.ai_agent.memory_manager import get_memory_manager
+                    memory = get_memory_manager()
+                    memory_ctx = memory.build_memory_context(
+                        query=query,
+                        session_id=conversation_id,
+                        user_id=user_id,
+                    )
+                except Exception as e:
+                    logger.warning(f"MemoryManager unavailable, falling back: {e}")
+                    # Fallback to raw history
+                    memory_ctx = {
+                        "conversation_history": self.get_session_messages(user_id, conversation_id),
+                        "session_summary": "",
+                        "cross_session_context": "",
+                        "user_preferences": "",
+                    }
 
             # Coordinate final response
             from backend.ai_agent.agents.coordinator_agent import CoordinatorAgent
@@ -91,7 +102,7 @@ class AIService:
                 thinking_result=thinking_result,
                 processing_result=processing_result,
                 visualization=visualization,
-                history=history
+                memory_context=memory_ctx
             )
             
             # Enrich response for storage and return
@@ -117,7 +128,21 @@ class AIService:
             message_id = self._store_conversation(user_id, conversation_id, query, final_response)
             if message_id:
                 final_response["metadata"]["message_id"] = message_id
-            
+
+            # ── Trigger post-response memory update (summarization etc.) ──
+            if conversation_id:
+                try:
+                    from backend.ai_agent.memory_manager import get_memory_manager
+                    memory = get_memory_manager()
+                    memory.trigger_memory_update(
+                        query=query,
+                        response_text=final_response.get("answer", ""),
+                        session_id=conversation_id,
+                        user_id=user_id,
+                    )
+                except Exception as e:
+                    logger.warning(f"Memory update failed (non-critical): {e}")
+
             return final_response
             
         except Exception as e:
@@ -210,8 +235,8 @@ class AIService:
     
     def get_agent_state(self, user_id: int) -> Dict[str, Any]:
         """Get the current state of AI agents for a user"""
-        user_agents = self.auth_service.get_user_domain_agents(user_id)
         all_agents = self.auth_service.get_all_domain_agents()
+        user_agents = [a.get("code", "") for a in all_agents]
         
         return {
             "assigned_agents": user_agents,
@@ -254,14 +279,18 @@ class AIService:
         # Group by conversation_id
         sessions: Dict[str, Dict[str, Any]] = {}
         for conv in conversations:
-            session_id = conv.get("conversation_id") or conv.get("id")
-            if not session_id:
-                continue
+            session_id = conv.get("conversation_id")
+            title = conv.get("query", "Conversation")[:50]
             
-            if session_id not in sessions:
-                sessions[session_id] = {
-                    "session_id": session_id,
-                    "title": conv.get("query", "Conversation")[:50],
+            # If no conversation_id exists (legacy message), group them all together
+            if not session_id:
+                session_id = "legacy_chat"
+                title = "Legacy Chat History"
+            
+            if str(session_id) not in sessions:
+                sessions[str(session_id)] = {
+                    "session_id": str(session_id),
+                    "title": title,
                     "query": conv.get("query", ""),
                     "message_count": 0,
                     "first_message": conv.get("timestamp"),
@@ -290,11 +319,26 @@ class AIService:
         session_id: str
     ) -> List[Dict[str, Any]]:
         """Get all messages for a specific session"""
-        conversations = self.adapter.query(
-            "conversations", 
-            {"user_id": user_id, "conversation_id": session_id}
-        )
         
+        # If accessing the grouped legacy chat, fetch all where conversation_id is NULL
+        if session_id == "legacy_chat":
+            conversations = self.adapter.query(
+                "conversations", 
+                {"user_id": user_id, "conversation_id": None}
+            )
+        else:
+            conversations = self.adapter.query(
+                "conversations", 
+                {"user_id": user_id, "conversation_id": str(session_id)}
+            )
+            
+            # Fallback for old messages that didn't have conversation_id and were grouped by id
+            if not conversations and str(session_id).isdigit():
+                conversations = self.adapter.query(
+                    "conversations",
+                    {"user_id": user_id, "id": int(session_id)}
+                )
+                
         # Create messages list with alternating user/assistant format
         messages = []
         for conv in sorted(conversations, key=lambda x: x.get("timestamp", "")):
@@ -302,6 +346,7 @@ class AIService:
             messages.append({
                 "role": "user",
                 "content": conv.get("query", ""),
+                "query": conv.get("query", ""),
                 "timestamp": conv.get("timestamp"),
             })
             # Add assistant message
@@ -350,36 +395,45 @@ class AIService:
         self,
         user_id: int,
         message_id: str,
-        rating: str, # "positive" or "negative"
+        rating: str,  # "positive" or "negative"
         comment: Optional[str] = None
     ) -> bool:
-        """Submit feedback for a specific AI response"""
+        """Submit feedback for a specific AI response and trigger preference learning"""
         try:
-            # Update in memory (if available)
-            if user_id in self._conversation_history:
-                for conv in self._conversation_history[user_id]:
-                    # Simple matching - in real DB this would be by ID
-                    # Since we don't have per-message IDs in memory structure easily w/o refactor,
-                    # we'll skip memory update or do best-effort match if we had IDs there.
-                    pass
-            
-            # Persist to data adapter
+            # Persist to existing feedback table
+            self.adapter.insert("feedback", {
+                "user_id": user_id,
+                "message_id": message_id,
+                "rating": rating,
+                "comment": comment,
+                "timestamp": datetime.now().isoformat()
+            })
+            logger.info(f"Feedback stored for message {message_id}: {rating}")
+
+            # ── Trigger preference learning from feedback ──
             try:
-                # Store feedback as a new record or update existing conversation if ID schema matches
-                # For now, let's store it in a 'feedback' table
-                self.adapter.insert("feedback", {
-                    "user_id": user_id,
-                    "message_id": message_id,
-                    "rating": rating,
-                    "comment": comment,
-                    "timestamp": datetime.now().isoformat()
-                })
-                logger.info(f"Feedback stored for message {message_id}: {rating}")
-                return True
+                # Find the original query/response for this message
+                query_text = ""
+                response_text = ""
+                convs = self.adapter.query("conversations", {"conversation_id": message_id})
+                if convs:
+                    query_text = convs[0].get("query", "")
+                    response_text = convs[0].get("response", "")
+
+                from backend.ai_agent.memory_manager import get_memory_manager
+                memory = get_memory_manager()
+                memory.extract_preferences_from_feedback(
+                    user_id=user_id,
+                    rating=rating,
+                    query=query_text,
+                    response=response_text,
+                    comment=comment,
+                )
             except Exception as e:
-                logger.warning(f"Could not store feedback: {e}")
-                return False
-                
+                logger.warning(f"Preference learning from feedback failed: {e}")
+
+            return True
+
         except Exception as e:
             logger.error(f"Error submitting feedback: {e}")
             return False

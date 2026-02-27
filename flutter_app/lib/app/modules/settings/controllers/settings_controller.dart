@@ -73,6 +73,37 @@ class SettingsController extends GetxController {
       _logger.error('Failed to update setting: $e', source: 'Settings');
     }
   }
+
+  Future<void> toggleTranslation(bool value) async {
+    try {
+      // Optimistic update
+      final currentConfig = Map<String, dynamic>.from(aiConfig.value);
+      currentConfig['translation_enabled'] = value;
+      aiConfig.value = currentConfig;
+      
+      final response = await _apiService.put(
+        ApiConfig.aiConfig,
+        data: {'translation_enabled': value},
+      );
+      
+      if (response.statusCode != 200) {
+        // Revert on failure
+        currentConfig['translation_enabled'] = !value;
+        aiConfig.value = currentConfig;
+        Get.snackbar('Error', 'Failed to update translation setting');
+      } else {
+         _logger.info('Translation setting updated: $value', source: 'Settings');
+      }
+    } catch (e) {
+      // Revert on error
+      final currentConfig = Map<String, dynamic>.from(aiConfig.value);
+      currentConfig['translation_enabled'] = !value;
+      aiConfig.value = currentConfig;
+      
+      _logger.error('Failed to update AI config: $e', source: 'Settings');
+      Get.snackbar('Error', 'Failed to update settings');
+    }
+  }
   
   void toggleTheme() {
     _themeController.toggleTheme();

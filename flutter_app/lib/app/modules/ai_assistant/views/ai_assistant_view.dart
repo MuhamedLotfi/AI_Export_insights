@@ -346,7 +346,9 @@ class AiAssistantView extends GetView<AiAssistantController> {
               ),
               Obx(() => Text(
                 controller.currentSessionId.value.isNotEmpty 
-                    ? 'Session: ${controller.currentSessionId.value.substring(0, 12)}...'
+                    ? (controller.currentSessionId.value.length > 12 
+                        ? 'Session: ${controller.currentSessionId.value.substring(0, 12)}...' 
+                        : 'Session: ${controller.currentSessionId.value}')
                     : 'New Session',
                 style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
               )),
@@ -1222,22 +1224,33 @@ class AiAssistantView extends GetView<AiAssistantController> {
         child: Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: controller.queryController,
-                style: const TextStyle(color: Colors.white),
-                maxLines: null,
-                decoration: InputDecoration(
-                  hintText: 'Ask anything about your data...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                  filled: true,
-                  fillColor: AppTheme.darkCard,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
+              child: KeyboardListener(
+                focusNode: FocusNode(),
+                onKeyEvent: (event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.enter &&
+                      !HardwareKeyboard.instance.isShiftPressed) {
+                    // Enter sends, Shift+Enter adds newline
+                    controller.sendQuery();
+                  }
+                },
+                child: TextField(
+                  controller: controller.queryController,
+                  style: const TextStyle(color: Colors.white),
+                  minLines: 1,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    hintText: 'Ask anything about your data...',
+                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                    filled: true,
+                    fillColor: AppTheme.darkCard,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 ),
-                onSubmitted: (_) => controller.sendQuery(),
               ),
             ),
             const SizedBox(width: 12),

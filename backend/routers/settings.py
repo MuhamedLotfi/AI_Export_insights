@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 
 from backend.routers.auth import get_current_user
+from backend.config import AI_CONFIG, LANGGRAPH_CONFIG
 
 router = APIRouter()
 
@@ -26,6 +27,7 @@ class AIConfigResponse(BaseModel):
     langgraph_enabled: bool
     domain_routing_enabled: bool
     thinking_trace_enabled: bool
+    output_language: str
 
 
 @router.get("/", response_model=SettingsResponse)
@@ -94,14 +96,14 @@ async def get_ai_config(current_user: dict = Depends(get_current_user)):
     """
     Get AI configuration settings
     """
-    from backend.config import AI_CONFIG, LANGGRAPH_CONFIG
     
     return AIConfigResponse(
         model_provider=AI_CONFIG.get("model_provider", "ollama"),
-        model_name=AI_CONFIG.get("ollama_model", "llama3.2:latest"),
+        model_name=AI_CONFIG.get("ollama_model"),
         langgraph_enabled=LANGGRAPH_CONFIG.get("use_langgraph_agents", True),
         domain_routing_enabled=LANGGRAPH_CONFIG.get("enable_domain_routing", True),
-        thinking_trace_enabled=LANGGRAPH_CONFIG.get("enable_thinking_trace", True)
+        thinking_trace_enabled=LANGGRAPH_CONFIG.get("enable_thinking_trace", True),
+        output_language=AI_CONFIG.get("output_language", "ar")
     )
 
 
@@ -124,7 +126,8 @@ async def update_ai_config(
     
     valid_keys = [
         "model_provider", "model_name", "langgraph_enabled",
-        "domain_routing_enabled", "thinking_trace_enabled"
+        "domain_routing_enabled", "thinking_trace_enabled",
+        "output_language"
     ]
     
     invalid_keys = [k for k in config.keys() if k not in valid_keys]
