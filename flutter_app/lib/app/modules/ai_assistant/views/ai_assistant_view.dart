@@ -409,52 +409,13 @@ class AiAssistantView extends GetView<AiAssistantController> {
                 ],
               ),
             ),
-            PopupMenuItem(
-              value: 'clear',
-              child: Row(
-                children: const [
-                  Icon(Icons.delete_outline, color: AppTheme.errorColor, size: 20),
-                  SizedBox(width: 12),
-                  Text('Clear All Memory', style: TextStyle(color: AppTheme.errorColor)),
-                ],
-              ),
-            ),
           ],
           onSelected: (value) {
             if (value == 'trace') controller.toggleThinkingTrace();
             if (value == 'new') controller.startNewChat();
-            if (value == 'clear') _showClearConfirmation();
           },
         ),
       ],
-    );
-  }
-  
-  void _showClearConfirmation() {
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Clear All Memory?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'This will clear ALL conversation history. This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              controller.clearMemory();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
-            child: const Text('Clear All'),
-          ),
-        ],
-      ),
     );
   }
   

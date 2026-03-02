@@ -63,7 +63,7 @@ class DatabaseService:
         try:
             from langchain_community.utilities import SQLDatabase
             # Return full access (read-only) database
-            return SafeSQLDatabase(self._engine)
+            return SafeSQLDatabase(self._engine, view_support=True)
         except ImportError:
             logger.warning("langchain_community not available for SQLDatabase")
             return None
@@ -74,7 +74,7 @@ class DatabaseService:
             return None
         try:
             # Return restricted (read-only) database
-            return SafeSQLDatabase(self._engine, include_tables=include_tables)
+            return SafeSQLDatabase(self._engine, include_tables=include_tables, view_support=True)
         except ImportError:
             logger.warning("langchain_community not available for SQLDatabase")
             return None

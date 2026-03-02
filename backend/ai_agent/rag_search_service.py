@@ -42,14 +42,18 @@ class SearchResult:
 # Table relevance keywords (query term → tables that are relevant)
 TABLE_RELEVANCE_MAP = {
     # English keywords
-    "invoice": ["EntityInvoices", "PaymentOrderInvoices", "TaxExemptionInvoices"],
-    "invoices": ["EntityInvoices", "PaymentOrderInvoices", "TaxExemptionInvoices"],
-    "sales": ["EntityInvoices", "AssignmentOrders"],
-    "revenue": ["EntityInvoices"],
-    "purchase": ["PaymentOrders", "PaymentOrderInvoices"],
+    "invoice": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "EntityInvoices", "PaymentOrderInvoices", "TaxExemptionInvoices"],
+    "invoices": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "EntityInvoices", "PaymentOrderInvoices", "TaxExemptionInvoices"],
+    "sales": ["vw_Customer_Project_Invoices", "EntityInvoices", "AssignmentOrders"],
+    "revenue": ["vw_Customer_Project_Invoices", "EntityInvoices"],
+    "profit": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices"],
+    "margin": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices"],
+    "yield": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices"],
+    "purchase": ["vw_Supplier_Project_Invoices", "PaymentOrders", "PaymentOrderInvoices"],
+    "cost": ["vw_Supplier_Project_Invoices"],
     "order": ["AssignmentOrders", "PaymentOrders"],
-    "project": ["Operations"],
-    "operation": ["Operations"],
+    "project": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "Operations"],
+    "operation": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "Operations"],
     "contract": ["Contracts", "CompanyContracts"],
     "claim": ["PaymentOrderClaims"],
     "quotation": ["PriceOffers", "IndicativeQuotations"],
@@ -57,21 +61,27 @@ TABLE_RELEVANCE_MAP = {
     "tax": ["TaxExemptions", "TaxExemptionInvoices"],
     "user": ["Users"],
     "branch": ["Branches"],
-    "entity": ["Entities"],
-    "customer": ["Entities"],
-    "supplier": ["Entities"],
+    "entity": ["vw_Customer_Project_Invoices", "Entities"],
+    "customer": ["vw_Customer_Project_Invoices", "Entities"],
+    "supplier": ["vw_Supplier_Project_Invoices", "Entities"],
     "bank": ["BankAccounts"],
     "lookup": ["Lookups", "LookupItems"],
     "request": ["Requests"],
 
     # Arabic keywords
-    "فاتورة": ["EntityInvoices", "PaymentOrderInvoices"],
-    "فواتير": ["EntityInvoices", "PaymentOrderInvoices"],
-    "مبيعات": ["EntityInvoices", "AssignmentOrders"],
-    "مشتريات": ["PaymentOrders", "PaymentOrderInvoices"],
-    "مشروع": ["Operations"],
-    "مشاريع": ["Operations"],
-    "عمليات": ["Operations"],
+    "فاتورة": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "EntityInvoices", "PaymentOrderInvoices"],
+    "فواتير": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "EntityInvoices", "PaymentOrderInvoices"],
+    "مبيعات": ["vw_Customer_Project_Invoices", "EntityInvoices", "AssignmentOrders"],
+    "ايراد": ["vw_Customer_Project_Invoices"],
+    "ايرادات": ["vw_Customer_Project_Invoices"],
+    "ارباح": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices"],
+    "ربح": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices"],
+    "تكلفة": ["vw_Supplier_Project_Invoices"],
+    "تكاليف": ["vw_Supplier_Project_Invoices"],
+    "مشتريات": ["vw_Supplier_Project_Invoices", "PaymentOrders", "PaymentOrderInvoices"],
+    "مشروع": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "Operations"],
+    "مشاريع": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "Operations"],
+    "عمليات": ["vw_Customer_Project_Invoices", "vw_Supplier_Project_Invoices", "Operations"],
     "عقد": ["Contracts", "CompanyContracts"],
     "عقود": ["Contracts", "CompanyContracts"],
     "مطالبة": ["PaymentOrderClaims"],
@@ -80,8 +90,8 @@ TABLE_RELEVANCE_MAP = {
     "ضريبة": ["TaxExemptions"],
     "أمر بيع": ["AssignmentOrders"],
     "أمر شراء": ["PaymentOrders"],
-    "عميل": ["Entities"],
-    "مورد": ["Entities"],
+    "عميل": ["vw_Customer_Project_Invoices", "Entities"],
+    "مورد": ["vw_Supplier_Project_Invoices", "Entities"],
     "فرع": ["Branches"],
     "بنك": ["BankAccounts"],
     "مستحقات": ["PaymentOrders", "PaymentOrderClaims", "PaymentOrderDeductions"],
@@ -181,8 +191,17 @@ class RAGSearchService:
             # Keyword score
             keyword_score = self._compute_keyword_score(content, query_terms)
 
-            # Table relevance score
-            table_score = 1.0 if table_name in relevant_tables else 0.0
+            # Table relevance score — views get 2x boost to always rank first
+            PRIORITY_VIEWS = {
+                "vw_Customer_Project_Invoices",
+                "vw_Supplier_Project_Invoices"
+            }
+            if table_name in PRIORITY_VIEWS:
+                table_score = 2.0
+            elif table_name in relevant_tables:
+                table_score = 1.0
+            else:
+                table_score = 0.0
 
             # Final hybrid score
             final_score = (

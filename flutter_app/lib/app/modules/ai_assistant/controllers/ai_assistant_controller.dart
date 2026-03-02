@@ -55,7 +55,7 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
     });
     
     _loadAgentState();
-    _loadSessionHistory();
+    _loadSessionHistory(isInitialLoad: true);
   }
   
   @override
@@ -102,7 +102,7 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
   
   // ===== SESSION HISTORY MANAGEMENT =====
   
-  Future<void> _loadSessionHistory({bool loadMore = false}) async {
+  Future<void> _loadSessionHistory({bool loadMore = false, bool isInitialLoad = false}) async {
     if (loadMore && !hasMoreHistory.value) return;
     if (loadMore && isLoadingHistory.value) return;
     
@@ -150,6 +150,11 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
         } else {
           sessionHistory.value = validSessions;
           historyOffset.value = validSessions.length;
+          
+          // Ensure a 'New Chat' always exists at the top if there isn't one already (mostly for page load/refresh)
+          if (isInitialLoad) {
+            _ensureNewChatExists();
+          }
         }
         
         _logger.info('Loaded ${validSessions.length} sessions. Total: ${sessionHistory.length}', source: 'AI');
@@ -164,11 +169,41 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
       isLoadingMemory.value = false;
     }
   }
+
+  void _ensureNewChatExists() {
+    if (sessionHistory.isEmpty || sessionHistory.first['title'] != 'New Chat' || sessionHistory.first['message_count'] != 0) {
+      final newSessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
+      final newSession = {
+        'session_id': newSessionId,
+        'title': 'New Chat',
+        'message_count': 0,
+        'first_message': DateTime.now().toIso8601String(),
+        'query': 'New Chat', // ensures UI fallback text is readable
+      };
+      
+      sessionHistory.insert(0, newSession);
+      
+      // If no valid session is selected, select the new one.
+      if (currentSessionId.value.isEmpty || !sessionHistory.any((s) => s['session_id'] == currentSessionId.value)) {
+        currentSessionId.value = newSessionId;
+      }
+    }
+  }
   
   Future<void> loadSessionMessages(String? sessionId) async {
     if (sessionId == null || sessionId.isEmpty) return;
     
     currentSessionId.value = sessionId;
+    
+    // Check if it's our local empty 'New Chat' session
+    final session = sessionHistory.firstWhere((s) => s['session_id'] == sessionId, orElse: () => {});
+    if (session.isNotEmpty && session['title'] == 'New Chat' && session['message_count'] == 0) {
+      messages.clear();
+      lastThinkingTrace.value = null;
+      _scrollToBottom();
+      return;
+    }
+
     isProcessing.value = true;
     
     try {
@@ -204,7 +239,21 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
   Future<void> startNewChat() async {
     _logger.info('Starting new chat session', source: 'AI');
     
-    // Generate new session ID
+    // Check if an empty 'New Chat' already exists at the top
+    if (sessionHistory.isNotEmpty) {
+      final topSession = sessionHistory.first;
+      if (topSession['title'] == 'New Chat' && topSession['message_count'] == 0) {
+        // Reuse the existing empty session
+        final existingId = topSession['session_id'];
+        currentSessionId.value = existingId;
+        messages.clear();
+        lastThinkingTrace.value = null;
+        _logger.info('Reused existing empty session: $existingId', source: 'AI');
+        return;
+      }
+    }
+    
+    // Otherwise, generate new session ID
     final newSessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
     currentSessionId.value = newSessionId;
     
@@ -214,6 +263,7 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
       'title': 'New Chat',
       'message_count': 0,
       'first_message': DateTime.now().toIso8601String(),
+      'query': 'New Chat',
     };
     sessionHistory.insert(0, newSession);
     
@@ -352,29 +402,6 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
     });
   }
   
-  Future<void> clearMemory() async {
-    try {
-      await _apiService.delete(ApiConfig.clearMemory);
-      messages.clear();
-      conversationHistory.clear();
-      sessionHistory.clear();
-      lastThinkingTrace.value = null;
-      currentSessionId.value = '';
-      
-      Get.snackbar(
-        'Memory Cleared',
-        'All conversation history has been cleared.',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-      );
-      
-      _logger.info('Memory cleared', source: 'AI');
-    } catch (e) {
-      _logger.error('Failed to clear memory: $e', source: 'AI');
-    }
-  }
-  
   void toggleThinkingTrace() {
     showThinkingTrace.toggle();
   }
@@ -400,7 +427,7 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
   // Refresh data
   Future<void> refresh() async {
     await _loadAgentState();
-    await _loadSessionHistory();
+    await _loadSessionHistory(isInitialLoad: true);
   }
   
   Future<void> submitFeedback(String messageId, bool isPositive) async {

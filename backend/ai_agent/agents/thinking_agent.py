@@ -60,7 +60,11 @@ class ThinkingAgent:
             "parameters": parameters,
             "domain_context": domain_context,
             "confidence": self._calculate_confidence(query_type, allowed_domains),
-            "reasoning": self._generate_reasoning(query, query_type, tool, allowed_domains)
+            "reasoning": self._generate_reasoning(query, query_type, tool, allowed_domains),
+            # View-first routing metadata (set by _build_domain_context → Step 0)
+            "use_views": domain_context.get("use_views", False),
+            "target_views": domain_context.get("target_views", []),
+            "matching_report": domain_context.get("matching_report"),
         }
         
         logger.info(f"[THINKING AGENT] Result: tool={tool}, domains={allowed_domains}, type={query_type}")
@@ -220,40 +224,79 @@ class ThinkingAgent:
         return params
     
     def _build_domain_context(self, domains: List[str], query: str = "") -> Dict[str, Any]:
-        """Build domain-specific context for processing with enhanced RAG-based table discovery"""
+        """Build domain-specific context for processing.
+        
+        Priority order:
+          STEP 0: Check core views (vw_Customer_Project_Invoices, vw_Supplier_Project_Invoices)
+          STEP 1: Hybrid RAG search for table discovery
+          STEP 2: Fallback to config / hardcoded default tables
+        """
         tables = []
         sql_hints = []
-        
-        # Dynamic discovery via Enhanced RAG Search Service (if available)
+        use_views = False
+        target_views: List[str] = []
+        matching_report = None
+
+        # ── STEP 0: View-First Check (highest priority) ───────────────────────
         try:
             from backend.config import DATA_SOURCE
             if DATA_SOURCE == "database" and query:
-                try:
-                    from backend.ai_agent.rag_search_service import get_rag_search_service
-                    rag_svc = get_rag_search_service()
-                    
-                    logger.info("[THINKING AGENT] Using hybrid RAG search for table discovery")
-                    context = rag_svc.search_with_context(query, top_k=5)
-                    
-                    if context.get("discovered_tables"):
-                        tables.extend(context["discovered_tables"])
-                        logger.info(f"[THINKING AGENT] RAG discovered tables: {context['discovered_tables']}")
-                    
-                    if context.get("sql_hints"):
-                        sql_hints.extend(context["sql_hints"])
-                        
-                except ImportError:
-                    # Fallback to old vector service if RAG service not available
-                    from backend.ai_agent.vector_service import get_vector_service
-                    vector_svc = get_vector_service()
-                    if vector_svc._ready:
-                        logger.info("[THINKING AGENT] Falling back to vector search for table discovery")
-                        discovered_tables = vector_svc.find_tables(query, top_k=3)
-                        if discovered_tables:
-                            tables.extend(discovered_tables)
-                            logger.info(f"[THINKING AGENT] Discovered tables: {discovered_tables}")
+                from backend.ai_agent.view_query_service import get_view_query_service
+                view_svc = get_view_query_service()
+
+                can_use_views, matched_views = view_svc.can_answer_from_views(query)
+                if can_use_views and matched_views:
+                    use_views = True
+                    target_views = matched_views
+                    # Surface view names as "discoverable tables" for processing agent
+                    tables.extend(matched_views)
+                    sql_hints.append(
+                        f"PRIORITY: Use views directly — {', '.join(matched_views)}. "
+                        "No raw table joins needed. Views already contain all needed columns."
+                    )
+                    logger.info(f"[THINKING AGENT] ✅ View-first routing → {matched_views}")
+
+                    # Check if there's a ready-made few-shot SQL report
+                    report_match = view_svc.get_matching_report(query)
+                    if report_match:
+                        matching_report = report_match[0]
+                        sql_hints.append(
+                            f"FEW-SHOT TEMPLATE AVAILABLE: '{report_match[0]}'. "
+                            "Use its structure as a SQL generation guide."
+                        )
+                        logger.info(f"[THINKING AGENT] 📋 Matched few-shot report: {report_match[0]}")
+
         except Exception as e:
-            logger.warning(f"[THINKING AGENT] Table discovery failed: {e}")
+            logger.warning(f"[THINKING AGENT] View check failed: {e}")
+
+        # ── STEP 1: RAG Schema Scan (only if views cannot answer) ─────────────
+        if not use_views:
+            try:
+                from backend.config import DATA_SOURCE
+                if DATA_SOURCE == "database" and query:
+                    try:
+                        from backend.ai_agent.rag_search_service import get_rag_search_service
+                        rag_svc = get_rag_search_service()
+
+                        logger.info("[THINKING AGENT] Using hybrid RAG search for table discovery")
+                        context = rag_svc.search_with_context(query, top_k=5)
+
+                        if context.get("discovered_tables"):
+                            tables.extend(context["discovered_tables"])
+                            logger.info(f"[THINKING AGENT] RAG discovered tables: {context['discovered_tables']}")
+
+                        if context.get("sql_hints"):
+                            sql_hints.extend(context["sql_hints"])
+
+                    except ImportError:
+                        from backend.ai_agent.vector_service import get_vector_service
+                        vector_svc = get_vector_service()
+                        if vector_svc._ready:
+                            discovered_tables = vector_svc.find_tables(query, top_k=3)
+                            if discovered_tables:
+                                tables.extend(discovered_tables)
+            except Exception as e:
+                logger.warning(f"[THINKING AGENT] Table discovery failed: {e}")
             
         # Fallback to config if no tables found (or mixed mode)
         for domain in domains:
@@ -274,7 +317,11 @@ class ThinkingAgent:
         return {
             "tables": list(set(tables)),
             "sql_hints": sql_hints,
-            "primary_domain": domains[0] if domains else None
+            "primary_domain": domains[0] if domains else None,
+            # View-first routing flags
+            "use_views": use_views,
+            "target_views": target_views,
+            "matching_report": matching_report,
         }
     
     def _calculate_confidence(self, query_type: str, domains: List[str]) -> str:

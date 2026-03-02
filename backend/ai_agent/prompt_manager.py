@@ -62,6 +62,19 @@ class PromptManager:
         
         schema_str = self._format_schema()
         nested_str = self._format_nested_schema()
+
+        # Try to inject view schemas from ViewQueryService (priority data sources)
+        view_schema_section = ""
+        try:
+            from backend.ai_agent.view_query_service import get_view_query_service
+            view_svc = get_view_query_service()
+            view_schema_section = view_svc.get_view_schema_description()
+        except Exception:
+            view_schema_section = (
+                "## ⭐ PRIORITY DATA SOURCES — ALWAYS USE THESE FIRST\n"
+                "- **vw_Customer_Project_Invoices**: Client invoices, revenue, project status\n"
+                "- **vw_Supplier_Project_Invoices**: Supplier costs, procurement invoices\n"
+            )
         
         prompt = f"""You are an advanced AI Data Analyst for the 'AI Export Insights' platform. 
 Your goal is to analyze business data and provide concise, actionable insights.
@@ -71,8 +84,10 @@ You MUST respond with detailed information from the data provided to you.
 - **Prompt Version**: {self.VERSION}
 - **User Role**: {user_role}
 
-## Database Schema (PostgreSQL Data Sources)
-You have access to the following data structures. Use these field names PRECISELY when discussing data.
+{view_schema_section}
+
+## Raw Database Tables (Use Only If Views Cannot Answer)
+You have access to the following additional data structures. Prefer views above.
 {schema_str}
 
 ## Nested Data Structure (Subtables)
@@ -117,6 +132,7 @@ When answering queries:
 
 """
         return prompt
+
 
     def _format_schema(self) -> str:
         """Format schema for the prompt"""

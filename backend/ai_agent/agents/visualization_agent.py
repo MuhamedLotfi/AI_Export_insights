@@ -143,9 +143,16 @@ class VisualizationAgent:
             logger.warning("[VISUALIZATION AGENT] Could not identify label or value columns")
             return None
         
-        # Build chart data
+        # Build chart data with safe float conversion
         labels = [str(row.get(label_col, "")) for row in data]
-        values = [float(row.get(value_col, 0)) for row in data]
+        
+        values = []
+        for row in data:
+            val = row.get(value_col)
+            try:
+                values.append(float(val) if val is not None else 0.0)
+            except (ValueError, TypeError):
+                values.append(0.0)
         
         # Assign colors
         colors = [self.chart_colors[i % len(self.chart_colors)] for i in range(len(labels))]

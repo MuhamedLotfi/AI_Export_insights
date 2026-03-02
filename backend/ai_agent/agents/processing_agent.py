@@ -191,11 +191,72 @@ class ProcessingAgent:
         domain_context: Dict[str, Any],
         parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Execute SQL query using LangChain SQL Agent if available, otherwise fallback"""
+        """Execute SQL query.
         
-        # Check if we are in database mode
+        Priority:
+          STEP 0: Direct view query (vw_Customer_Project_Invoices / vw_Supplier_Project_Invoices)
+          STEP 1: LangChain SQL Agent (for complex queries or non-view answers)
+          STEP 2: Fallback direct SQL / JSON
+        """
         from backend.config import DATA_SOURCE
-        
+
+        # ── STEP 0: VIEW-FIRST EXECUTION ──────────────────────────────────────
+        use_views = domain_context.get("use_views", False)
+        target_views = domain_context.get("target_views", [])
+        matching_report = domain_context.get("matching_report")
+
+        if DATA_SOURCE == "database" and use_views and target_views:
+            try:
+                from backend.ai_agent.view_query_service import get_view_query_service
+                view_svc = get_view_query_service()
+
+                limit = parameters.get("limit", 50)
+                query_type = domain_context.get("primary_domain", "general")
+                all_results = []
+
+                for view_name in target_views:
+                    # Determine if aggregation is needed
+                    agg = None
+                    query_lower = query.lower()
+                    if any(kw in query_lower or kw in query for kw in [
+                        "total", "sum", "إجمالي", "مجموع", "count", "عدد"
+                    ]):
+                        agg = "sum"
+                    elif any(kw in query_lower or kw in query for kw in [
+                        "count", "how many", "كم"
+                    ]):
+                        agg = "count"
+
+                    sql = view_svc.build_view_sql(
+                        view_name=view_name,
+                        limit=limit,
+                        aggregate=agg
+                    )
+                    logger.info(f"[PROCESSING AGENT] ⭐ View-first query → {view_name}: {sql}")
+                    rows = view_svc.execute_view_query(view_name, sql)
+                    for row in rows:
+                        row["_source_view"] = view_name
+                        all_results.append(row)
+
+                if all_results:
+                    hint = f"Data sourced from master view(s): {', '.join(target_views)}"
+                    if matching_report:
+                        hint += f" | Few-shot template: {matching_report}"
+                    logger.info(f"[PROCESSING AGENT] ✅ View-first returned {len(all_results)} rows")
+                    return {
+                        "data": all_results,
+                        "query": f"SELECT * FROM {' + '.join(target_views)} (view-first)",
+                        "generated_query": sql,
+                        "source": "view_first",
+                        "summary": hint
+                    }
+                else:
+                    logger.warning("[PROCESSING AGENT] View query returned no rows, falling through to SQL Agent")
+
+            except Exception as e:
+                logger.warning(f"[PROCESSING AGENT] View-first execution failed: {e}, falling through")
+
+        # ── STEP 1: LANGCHAIN SQL AGENT ────────────────────────────────────────
         if DATA_SOURCE == "database":
              try:
                 from backend.ai_agent.database_service import get_database
@@ -207,38 +268,46 @@ class ProcessingAgent:
                 except ImportError:
                     from langchain_community.llms import Ollama as OllamaLLM
                 from backend.config import AI_CONFIG
-                
+
                 from backend.ai_agent.database_service import get_restricted_db
-                
-                # Determine tables to include to prevent context overflow ("Chunk too big")
-                tables_to_include = []
-                
-                # 1. Use tables from domain context (identified by Thinking Agent)
+
+                # Tables to include — views are always present
+                tables_to_include = [
+                    "vw_Customer_Project_Invoices",
+                    "vw_Supplier_Project_Invoices"
+                ]
+
+                # 1. Target views from domain context (highest priority)
+                if domain_context.get("target_views"):
+                    tables_to_include.extend(domain_context["target_views"])
+
+                # 2. Additional tables from domain context
                 if domain_context.get("tables"):
-                    tables_to_include.extend(domain_context["tables"])
-                    
-                # 2. Add tables based on query keywords (using SUBTABLE_MAP)
+                    for t in domain_context["tables"]:
+                        if t not in tables_to_include:
+                            tables_to_include.append(t)
+
+                # 3. SUBTABLE_MAP keyword matching
                 query_lower = query.lower()
                 for keyword, mapped_tables in self.SUBTABLE_MAP.items():
                     if keyword in query_lower:
-                        tables_to_include.extend(mapped_tables)
-                
-                # 3. If still empty, use a sensible default set of core tables
+                        for t in mapped_tables:
+                            if t not in tables_to_include:
+                                tables_to_include.append(t)
+
+                # 4. Default fallback — views + core tables
                 if not tables_to_include:
-                     tables_to_include = [
-                         "Operations",        # Projects
-                         "EntityInvoices",    # Sales
-                         "Contracts",         # Contracts
-                         "PaymentOrders",     # Purchases
-                         "AssignmentOrders",  # Sales Orders
-                         "Users",             # Users
-                         "Roles",             # User roles
-                         "Permissions",       # Permissions
-                         "Entities",          # Customers/Suppliers
-                         "LookupItems",       # Lookup values
-                     ]
-                
-                # 4. Auto-include related tables when relevant ones are present
+                    tables_to_include = [
+                        "vw_Customer_Project_Invoices",
+                        "vw_Supplier_Project_Invoices",
+                        "Operations",
+                        "EntityInvoices",
+                        "Entities",
+                        "PaymentOrders",
+                        "LookupItems",
+                    ]
+
+                # 5. Auto-include related tables when relevant
                 RELATED_TABLES = {
                     "Users": ["Roles", "UserRoles", "RolePermissions", "Permissions"],
                     "Roles": ["Users", "RolePermissions", "Permissions"],
@@ -252,18 +321,12 @@ class ProcessingAgent:
                     if t in RELATED_TABLES:
                         expanded.update(RELATED_TABLES[t])
                 tables_to_include = list(expanded)
-                
-                # Safety check: If list is still huge, limit it? 
-                # (Unlikely with this logic, but good to know)
-                
-                logger.info(f"[PROCESSING AGENT] Restricting SQL Agent to tables: {tables_to_include}")
-                
-                # Get restricted database instance
+
+                logger.info(f"[PROCESSING AGENT] SQL Agent tables: {tables_to_include}")
                 db = get_restricted_db(tables_to_include)
                 if db:
                     logger.info("[PROCESSING AGENT] Using LangChain SQL Agent")
-                    
-                    # Get or create cached LLM instance (singleton)
+
                     current_provider = AI_CONFIG["model_provider"]
                     if ProcessingAgent._cached_llm is None or ProcessingAgent._cached_llm_provider != current_provider:
                         if current_provider == "openai":
@@ -279,45 +342,51 @@ class ProcessingAgent:
                                 temperature=0
                             )
                         ProcessingAgent._cached_llm_provider = current_provider
-                        logger.info(f"[PROCESSING AGENT] Created cached LLM ({current_provider})")
-                    
+
                     llm = ProcessingAgent._cached_llm
-                    
-                    # Create SQL Agent with strict double-quoting rules
+
                     toolkit = SQLDatabaseToolkit(db=db, llm=llm)
-                    
                     schema_info = ""
                     try:
-                        # Pre-fetch the exact schema string the agent usually wastes iterations acquiring
                         schema_info = db.get_table_info()
                     except Exception as e:
-                        logger.warning(f"[PROCESSING AGENT] Could not fetch schema info directly: {e}")
+                        logger.warning(f"[PROCESSING AGENT] Could not fetch schema info: {e}")
+
+                    # Inject ALL relevant few-shot report templates (multi-report, labeled)
+                    few_shot_section = ""
+                    try:
+                        from backend.ai_agent.view_query_service import get_view_query_service
+                        view_svc = get_view_query_service()
+                        few_shot_section = view_svc.build_few_shot_block(query, max_chars_per_report=800)
+                        if few_shot_section:
+                            matched_labels = [r[1] for r in view_svc.get_matching_reports(query, top_k=3)]
+                            logger.info(f"[PROCESSING AGENT] 📋 Injected few-shot reports: {matched_labels}")
+                    except Exception as e:
+                        logger.warning(f"[PROCESSING AGENT] Could not build few-shot block: {e}")
 
                     sql_agent_prefix = f"""You are an agent designed to interact with a PostgreSQL database.
 
-Here is the exact schema information for the tables you are allowed to query. Review it carefully before answering.
+CRITICAL RULE — ALWAYS USE VIEWS FIRST:
+The database has 2 master views that already contain pre-joined, clean data:
+  1. "vw_Customer_Project_Invoices" — Use for revenue, client invoices, project status
+  2. "vw_Supplier_Project_Invoices" — Use for supplier costs, procurement invoices
+
+ALWAYS prefer querying these views over raw tables whenever possible.
+{few_shot_section}
+Here is the exact schema information:
 <schema>
 {schema_info}
 </schema>
 
-CRITICAL RULE - DOUBLE QUOTES ON EVERY IDENTIFIER:
-This PostgreSQL database has case-sensitive table and column names.
-You MUST wrap EVERY table name and EVERY column name in double quotes.
-
-CORRECT:   SELECT "Username", "RoleId" FROM "Users" WHERE "IsActive" = true
-CORRECT:   SELECT U."Username", R."RoleName" FROM "Users" U JOIN "Roles" R ON U."RoleId" = R."Id"
-INCORRECT: SELECT Username FROM Users  -- THIS WILL FAIL!
-INCORRECT: SELECT * FROM Roles         -- THIS WILL FAIL!
-
-ALWAYS use double quotes. NEVER write a query without double quotes around identifiers.
-If you get an 'UndefinedTable' or 'UndefinedColumn' error, it means you forgot double quotes.
-
-Also limit your results with LIMIT 50 unless asked for all rows.
+CRITICAL RULE — DOUBLE QUOTES ON EVERY IDENTIFIER:
+CORRECT:   SELECT "InvoiceNumber", "TotalAfterDiscountInvoice" FROM "vw_Customer_Project_Invoices" LIMIT 50
+INCORRECT: SELECT InvoiceNumber FROM vw_Customer_Project_Invoices  -- WILL FAIL!
 
 IMPORTANT GUIDELINES FOR SPEED:
-1. DO NOT use the sql_db_list_tables tool. You already know which tables exist.
-2. DO NOT use the sql_db_schema tool unless absolutely necessary.
-3. Write your SELECT query immediately and execute it using sql_db_query."""
+1. DO NOT use sql_db_list_tables. You already know which tables/views exist.
+2. DO NOT use sql_db_schema unless absolutely necessary.
+3. Write your SELECT query immediately using sql_db_query.
+4. Always LIMIT results to 50 unless asked otherwise."""
 
                     agent_executor = create_sql_agent(
                         llm=llm,
@@ -328,26 +397,24 @@ IMPORTANT GUIDELINES FOR SPEED:
                         max_iterations=8,
                         prefix=sql_agent_prefix
                     )
-                    
-                    # Execute
-                    # Enhance query with domain context if needed
+
                     full_query = query
-                    if domain_context.get("tables"):
-                        full_query += f" (Focus on tables: {', '.join(domain_context['tables'])})"
-                        
+                    if domain_context.get("target_views"):
+                        full_query += f" (Prefer views: {', '.join(domain_context['target_views'])})"
+
                     response = await agent_executor.ainvoke(full_query)
                     result_text = response.get("output", "")
-                    
+
                     return {
-                        "data": [{"result": result_text}], # SQL Agent returns text summary
+                        "data": [{"result": result_text}],
                         "query": full_query,
                         "generated_query": "Generated by SQL Agent",
                         "summary": result_text
                     }
-                    
+
              except Exception as e:
                 logger.error(f"[PROCESSING AGENT] SQL Agent error: {e}")
-                # Fallback to normal execution if agent fails
+
         
         # ... Rest of original implementation for JSON/Fallback ...
         tables = domain_context.get("tables", [])
