@@ -35,7 +35,7 @@ INNER JOIN "Entities" e
     ON e."Id" = ro."AssignmentOrderId" AND e."IsDeleted" = false 
 LEFT JOIN "Operations" op 
     ON ro."OperationId" = op."Id" AND op."IsDeleted" = false
-LEFT JOIN vw_Customer_Project_Invoices cpi 
+LEFT JOIN "vw_Customer_Project_Invoices" cpi 
     ON op."OperationNumber" = cpi."ProjectNumber"
 
 WHERE ro."IsDeleted" = false

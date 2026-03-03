@@ -28,6 +28,6 @@ SELECT
         ELSE 'D - Operations Only'
     END AS "Account Tier"
 
-FROM vw_Customer_Project_Invoices
+FROM "vw_Customer_Project_Invoices"
 GROUP BY "EntityName", "EntityAR", "DepartmentNameEN"
 ORDER BY "Total Invoiced Revenue (EGP)" DESC NULLS LAST;

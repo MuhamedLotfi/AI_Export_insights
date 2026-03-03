@@ -13,14 +13,14 @@ WITH DeptRevenue AS (
         COUNT(DISTINCT "ProjectNumber") AS "Operation_Volume",
         COUNT("InvoiceNumber") AS "Invoice_Count",
         SUM("TotalAfterDiscountInvoice") AS "Gross_Yield"
-    FROM vw_Customer_Project_Invoices
+    FROM "vw_Customer_Project_Invoices"
     GROUP BY "DepartmentNameEN"
 ),
 DeptCosts AS (
     SELECT 
         "DepartmentNameEN",
         SUM("TotalPrice") AS "Supplier_Costs"
-    FROM vw_Supplier_Project_Invoices
+    FROM "vw_Supplier_Project_Invoices"
     GROUP BY "DepartmentNameEN"
 )
 

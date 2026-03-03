@@ -29,7 +29,7 @@ FROM "Imports" i
 LEFT JOIN "AssignmentOrders" ao ON i."Id" = ao."ImportId" AND ao."IsDeleted" = false
 LEFT JOIN "ReceivingOrders" ro ON ao."Id" = ro."AssignmentOrderId" AND ro."IsDeleted" = false
 LEFT JOIN "Operations" op ON ro."OperationId" = op."Id" AND op."IsDeleted" = false
-LEFT JOIN vw_Customer_Project_Invoices cpi ON op."OperationNumber" = cpi."ProjectNumber"
+LEFT JOIN "vw_Customer_Project_Invoices" cpi ON op."OperationNumber" = cpi."ProjectNumber"
 
 WHERE i."IsDeleted" = false
 GROUP BY "Pipeline Bottleneck Stage"

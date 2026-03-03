@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:get/get.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../../../config/api_config.dart';
 import '../../../data/services/api_service.dart';
 import '../../../data/services/log_service.dart';
@@ -29,6 +30,12 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
   Timer? _processingTimer;
   final RxBool showThinkingTrace = true.obs;
   
+  // Speech Recognition state (cross-platform)
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  final RxBool isRecording = false.obs;
+  final RxBool isSpeechSupported = false.obs;
+  final RxString interimTranscript = ''.obs;
+  
   // Session management
   final RxString currentSessionId = ''.obs;
   final RxList<Map<String, dynamic>> sessionHistory = <Map<String, dynamic>>[].obs;
@@ -56,6 +63,7 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
     
     _loadAgentState();
     _loadSessionHistory(isInitialLoad: true);
+    _initSpeechRecognition();
   }
   
   @override
@@ -65,6 +73,7 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
     chatScrollController.dispose();
     chatScrollController.dispose();
     _stopTimer();
+    _cleanupSpeechRecognition();
     super.onClose();
   }
 
@@ -322,12 +331,12 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
   
   // ===== CHAT FUNCTIONALITY =====
   
-  Future<void> sendQuery() async {
+  Future<void> sendQuery({String? reportName}) async {
     final query = queryController.text.trim();
-    if (query.isEmpty) return;
+    if (query.isEmpty && reportName == null) return;
     
     // Add user message
-    messages.add(ChatMessage.userMessage(query));
+    messages.add(ChatMessage.userMessage(query.isNotEmpty ? query : (reportName ?? 'Report Query')));
     queryController.clear();
     
     // Scroll to bottom
@@ -341,10 +350,11 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
       final response = await _apiService.post(
         ApiConfig.chat,
         data: {
-          'query': query,
+          'query': query.isNotEmpty ? query : (reportName ?? ''),
           'conversation_id': currentSessionId.value.isNotEmpty 
               ? currentSessionId.value 
               : null,
+          if (reportName != null) 'report_name': reportName,
         },
       );
       
@@ -408,15 +418,29 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
   
   // Quick query suggestions
   List<String> get quickQueries => [
-    'Show me top 10 sales',
-    'What is current inventory status?',
-    'Compare sales by category',
-    'Show revenue trends',
+    'Executive Dashboard - لوحة القيادة التنفيذية',
+    'Cash Flow & Liquidity - التدفق النقدي والسيولة',
+    'Budget Variance - تباين الميزانية',
+    'Departmental Yield - العائد على مستوى القسم',
+    'P&L Tracker - متتبع الأرباح والخسائر',
+    'Project Lifecycle - دورة حياة المشروع',
+    'Revenue Bottlenecks - اختناقات الإيرادات',
   ];
   
   void sendQuickQuery(String query) {
     queryController.text = query;
-    sendQuery();
+    final Map<String, String> reportMap = {
+      'Executive Dashboard - لوحة القيادة التنفيذية': '01_executive_dashboard',
+      'Cash Flow & Liquidity - التدفق النقدي والسيولة': '02_cash_flow_liquidity',
+      'Budget Variance - تباين الميزانية': '03_budget_variance',
+      'Departmental Yield - العائد على مستوى القسم': '04_departmental_yield',
+      'P&L Tracker - متتبع الأرباح والخسائر': '06_operation_pnl',
+      'Project Lifecycle - دورة حياة المشروع': '05_project_lifecycle_tracker',
+      'Revenue Bottlenecks - اختناقات الإيرادات': '07_revenue_bottlenecks',
+    };
+    
+    final reportName = reportMap[query];
+    sendQuery(reportName: reportName);
   }
   
   // Check agent access
@@ -464,5 +488,108 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
   // Load more history (for pagination)
   Future<void> loadMoreHistory() async {
     await _loadSessionHistory(loadMore: true);
+  }
+  
+  // ===== SPEECH RECOGNITION (Cross-Platform) =====
+  
+  Future<void> _initSpeechRecognition() async {
+    try {
+      final available = await _speech.initialize(
+        onError: (error) {
+          isRecording.value = false;
+          interimTranscript.value = '';
+          _logger.error('Speech recognition error: ${error.errorMsg}', source: 'AI');
+          
+          // Don't show snackbar for "no-speech" — it's just a timeout
+          if (error.errorMsg != 'no-speech') {
+            Get.snackbar(
+              'Speech Error',
+              'Could not recognize speech. Please try again.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: Colors.red,
+              colorText: Colors.white,
+              duration: const Duration(seconds: 2),
+              margin: const EdgeInsets.all(16),
+              borderRadius: 12,
+            );
+          }
+        },
+        onStatus: (status) {
+          _logger.info('Speech status: $status', source: 'AI');
+          if (status == 'done' || status == 'notListening') {
+            isRecording.value = false;
+            interimTranscript.value = '';
+          }
+        },
+      );
+      
+      isSpeechSupported.value = available;
+      
+      if (available) {
+        _logger.info('Speech recognition initialized successfully', source: 'AI');
+      } else {
+        _logger.warning('Speech recognition not available on this device', source: 'AI');
+      }
+    } catch (e) {
+      _logger.error('Failed to initialize speech recognition: $e', source: 'AI');
+      isSpeechSupported.value = false;
+    }
+  }
+  
+  void _cleanupSpeechRecognition() {
+    try {
+      if (isRecording.value) {
+        _speech.stop();
+      }
+      _speech.cancel();
+    } catch (e) {
+      _logger.error('Failed to cleanup speech recognition: $e', source: 'AI');
+    }
+  }
+  
+  void toggleSpeechRecognition() {
+    if (!isSpeechSupported.value) {
+      Get.snackbar(
+        'Not Supported',
+        'Speech recognition is not supported on this device. Please use Chrome on web or grant microphone permissions.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return;
+    }
+    
+    if (isRecording.value) {
+      // Stop recording
+      _speech.stop();
+      isRecording.value = false;
+      interimTranscript.value = '';
+    } else {
+      // Start recording
+      isRecording.value = true;
+      _speech.listen(
+        onResult: (result) {
+          if (result.finalResult) {
+            // Final result — set in text field
+            queryController.text = result.recognizedWords;
+            interimTranscript.value = '';
+            _logger.info('Final transcript: ${result.recognizedWords}', source: 'AI');
+          } else {
+            // Interim result — show live preview
+            interimTranscript.value = result.recognizedWords;
+          }
+        },
+        localeId: 'ar_EG', // Arabic
+        listenMode: stt.ListenMode.dictation,
+        cancelOnError: true,
+        // Allow continuous dictation until manually stopped 
+        // (Note: Some platforms like iOS still enforce a ~1 minute hard limit)
+        listenFor: const Duration(minutes: 60),
+        pauseFor: const Duration(minutes: 60),
+      );
+    }
   }
 }

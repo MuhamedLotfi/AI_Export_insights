@@ -42,7 +42,7 @@ LEFT JOIN "ReceivingOrders" ro
     ON ao."Id" = ro."AssignmentOrderId" AND ro."IsDeleted" = false
 LEFT JOIN "Operations" op 
     ON ro."OperationId" = op."Id" AND op."IsDeleted" = false
-LEFT JOIN vw_Customer_Project_Invoices cpi 
+LEFT JOIN "vw_Customer_Project_Invoices" cpi 
     ON op."OperationNumber" = cpi."ProjectNumber"
 
 WHERE i."IsDeleted" = false

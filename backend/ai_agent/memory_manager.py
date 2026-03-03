@@ -141,6 +141,7 @@ class MemoryManager:
                         'SELECT query, response, "timestamp" '
                         'FROM conversations '
                         'WHERE conversation_id = :sid AND user_id = :uid '
+                        '  AND feedback IS DISTINCT FROM \'negative\' '
                         'ORDER BY "timestamp" ASC'
                     ),
                     {"sid": session_id, "uid": user_id},
@@ -201,7 +202,8 @@ class MemoryManager:
                 count_row = conn.execute(
                     text(
                         "SELECT COUNT(*) FROM conversations "
-                        "WHERE conversation_id = :sid AND user_id = :uid"
+                        "WHERE conversation_id = :sid AND user_id = :uid "
+                        "  AND feedback IS DISTINCT FROM 'negative'"
                     ),
                     {"sid": session_id, "uid": user_id},
                 ).fetchone()
@@ -232,6 +234,7 @@ class MemoryManager:
                     text(
                         'SELECT query, response FROM conversations '
                         'WHERE conversation_id = :sid AND user_id = :uid '
+                        '  AND feedback IS DISTINCT FROM \'negative\' '
                         'ORDER BY "timestamp" ASC'
                     ),
                     {"sid": session_id, "uid": user_id},

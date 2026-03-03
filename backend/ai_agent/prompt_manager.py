@@ -99,11 +99,12 @@ The tables may contain nested arrays (subtables) with detailed records. When use
 - NEVER mention JSON, files, or internal data structures in your response. 
 - You MUST only provide business answers based on the rows provided.
 - If an operation or project has financial data, emphasize:
-  - Total revenue (إجمالي المبيعات)
-  - Total expenses (إجمالي المشتريات)
-  - Total invoiced amount (إجمالي الفواتير)
-  - Revenue minus costs (هامش الربح)
-  - Profit percentage (نسبة الربحية)
+  - Top Reports - أهم التقارير
+  - Top Sales - أهم المبيعات
+  - Executive Dashboard - لوحة القيادة التنفيذية
+  - Cash Flow & Liquidity - التدفق النقدي والسيولة
+  - Departmental Yield - العائد على مستوى القسم
+  - Revenue Bottlenecks - اختناقات الإيرادات
 
 ## Communication Style
 - **CRITICAL ROLE REQUIREMENT**: You MUST write your response entirely in conversational Arabic.
@@ -129,6 +130,8 @@ When answering queries:
 - **ALWAYS reference specific values from the data** (numbers, names, references).
 - **When data has `reference_name` and `doc_details`, always show both**.
 - **When data has `totals`, always show it and compute the grand total**.
+- **NEVER mention internal technical terms** like view names (`vw_Customer_Project_Invoices`), table names, SQL queries, or any other database objects in your response. These are internal implementation details that the user does not need to know about.
+- **NEVER suggest the user to "explore" or "search" specific views or tables by name** (e.g., do not say "try vw_Customer_Project_Invoices"). Instead suggest business actions like "you can ask for revenue by department" or "try asking about project status".
 
 """
         return prompt

@@ -441,7 +441,12 @@ class DatabaseAdapter(DataAdapter):
             return []
         
         # Security check: Enforce READ-ONLY access
-        sql_lower = sql.strip().lower()
+        # Remove comment blocks purely for validation
+        import re
+        sql_clean = re.sub(r'/\*.*?\*/', '', sql, flags=re.DOTALL)
+        sql_clean = re.sub(r'--.*?\n', '\n', sql_clean)
+        
+        sql_lower = sql_clean.strip().lower()
         if not (sql_lower.startswith("select") or sql_lower.startswith("with") or sql_lower.startswith("show") or sql_lower.startswith("explain")):
             logger.warning(f"Blocked non-SELECT query: {sql}")
             return []

@@ -583,23 +583,55 @@ class AiAssistantView extends GetView<AiAssistantController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(4),
+                    ),
+                  ),
+                  child: Text(
+                    message.query,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(4),
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: message.query));
+                    Get.snackbar(
+                      'Copied', 
+                      'Question copied to clipboard',
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: Colors.black87,
+                      colorText: Colors.white,
+                      duration: const Duration(seconds: 1),
+                      margin: const EdgeInsets.all(16),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.copy, size: 12, color: Colors.white54),
+                        const SizedBox(width: 4),
+                        const Text('Copy', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                message.query,
-                style: const TextStyle(color: Colors.white),
-              ),
+              ],
             ),
           ),
           const SizedBox(width: 8),
@@ -798,6 +830,15 @@ class AiAssistantView extends GetView<AiAssistantController> {
                   padding: const EdgeInsets.only(top: 8, left: 4),
                   child: Row(
                     children: [
+                      // Timestamp
+                      Container(
+                        margin: const EdgeInsets.only(right: 16),
+                        child: Text(
+                          _formatTime(message.timestamp),
+                          style: const TextStyle(color: Colors.white54, fontSize: 11),
+                        ),
+                      ),
+
                       // Duration
                       if (durationText.isNotEmpty)
                         Container(
@@ -862,14 +903,16 @@ class AiAssistantView extends GetView<AiAssistantController> {
                          Container(width: 1, height: 16, color: Colors.white.withOpacity(0.1)),
                          const SizedBox(width: 8),
                          _buildActionIcon(
-                          Icons.thumb_up_outlined,
+                          message.feedback == 'positive' ? Icons.thumb_up : Icons.thumb_up_outlined,
                           'Helpful',
                           () => controller.submitFeedback(message.messageId!, true),
+                          color: message.feedback == 'positive' ? AppTheme.accentColor : Colors.white38,
                         ),
                         _buildActionIcon(
-                          Icons.thumb_down_outlined,
+                          message.feedback == 'negative' ? Icons.thumb_down : Icons.thumb_down_outlined,
                           'Not Helpful',
                           () => controller.submitFeedback(message.messageId!, false),
+                          color: message.feedback == 'negative' ? AppTheme.errorColor : Colors.white38,
                         ),
                       ],
                     ],
@@ -883,7 +926,7 @@ class AiAssistantView extends GetView<AiAssistantController> {
     );
   }
 
-  Widget _buildActionIcon(IconData icon, String tooltip, VoidCallback onTap) {
+  Widget _buildActionIcon(IconData icon, String tooltip, VoidCallback onTap, {Color? color}) {
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -893,11 +936,15 @@ class AiAssistantView extends GetView<AiAssistantController> {
           borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(6),
-            child: Icon(icon, size: 16, color: Colors.white38),
+            child: Icon(icon, size: 16, color: color ?? Colors.white38),
           ),
         ),
       ),
     );
+  }
+
+  String _formatTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
   
   Widget _buildChart(Map<String, dynamic> chartData) {
@@ -1182,58 +1229,131 @@ class AiAssistantView extends GetView<AiAssistantController> {
         ),
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
           children: [
-            Expanded(
-              child: KeyboardListener(
-                focusNode: FocusNode(),
-                onKeyEvent: (event) {
-                  if (event is KeyDownEvent &&
-                      event.logicalKey == LogicalKeyboardKey.enter &&
-                      !HardwareKeyboard.instance.isShiftPressed) {
-                    // Enter sends, Shift+Enter adds newline
-                    controller.sendQuery();
-                  }
-                },
-                child: TextField(
-                  controller: controller.queryController,
-                  style: const TextStyle(color: Colors.white),
-                  minLines: 1,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    hintText: 'Ask anything about your data...',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                    filled: true,
-                    fillColor: AppTheme.darkCard,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
+            // Show interim transcript while recording
+            Obx(() {
+              if (controller.interimTranscript.value.isNotEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.mic, color: AppTheme.primaryColor, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          controller.interimTranscript.value,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
+            
+            // Input row with mic button
+            Row(
+              children: [
+                Expanded(
+                  child: KeyboardListener(
+                    focusNode: FocusNode(),
+                    onKeyEvent: (event) {
+                      if (event is KeyDownEvent &&
+                          event.logicalKey == LogicalKeyboardKey.enter &&
+                          !HardwareKeyboard.instance.isShiftPressed) {
+                        controller.sendQuery();
+                      }
+                    },
+                    child: TextField(
+                      controller: controller.queryController,
+                      style: const TextStyle(color: Colors.white),
+                      minLines: 1,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        hintText: 'Ask anything about your data...',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                        filled: true,
+                        fillColor: AppTheme.darkCard,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                
+                // Microphone Button
+                Obx(() {
+                  if (!controller.isSpeechSupported.value) {
+                    return const SizedBox.shrink();
+                  }
+                  
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: controller.isRecording.value
+                          ? LinearGradient(colors: [Colors.red, Colors.red.shade700])
+                          : LinearGradient(colors: [
+                              AppTheme.primaryColor.withOpacity(0.3), 
+                              AppTheme.secondaryColor.withOpacity(0.3)
+                            ]),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: controller.isRecording.value 
+                            ? Colors.red 
+                            : AppTheme.primaryColor.withOpacity(0.5),
+                        width: 2,
+                      ),
+                    ),
+                    child: IconButton(
+                      onPressed: controller.toggleSpeechRecognition,
+                      icon: Icon(
+                        controller.isRecording.value ? Icons.mic : Icons.mic_none,
+                        color: Colors.white,
+                      ),
+                      tooltip: controller.isRecording.value ? 'Stop Recording' : 'Start Recording',
+                    ),
+                  );
+                }),
+                
+                const SizedBox(width: 4),
+                
+                // Send Button
+                Obx(() => Container(
+                  decoration: BoxDecoration(
+                    gradient: controller.isProcessing.value
+                        ? null
+                        : LinearGradient(colors: [AppTheme.primaryColor, AppTheme.secondaryColor]),
+                    color: controller.isProcessing.value ? Colors.grey : null,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    onPressed: controller.isProcessing.value ? null : controller.sendQuery,
+                    icon: controller.isProcessing.value
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.send, color: Colors.white),
+                  ),
+                )),
+              ],
             ),
-            const SizedBox(width: 12),
-            Obx(() => Container(
-              decoration: BoxDecoration(
-                gradient: controller.isProcessing.value
-                    ? null
-                    : LinearGradient(colors: [AppTheme.primaryColor, AppTheme.secondaryColor]),
-                color: controller.isProcessing.value ? Colors.grey : null,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                onPressed: controller.isProcessing.value ? null : controller.sendQuery,
-                icon: controller.isProcessing.value
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.send, color: Colors.white),
-              ),
-            )),
           ],
         ),
       ),

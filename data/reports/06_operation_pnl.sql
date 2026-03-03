@@ -13,14 +13,14 @@ WITH CustomerRevenue AS (
         "ProjectName",
         MAX("EntityName") AS "ClientEntity",
         SUM("TotalAfterDiscountInvoice") AS "ClientRevenueEGP"
-    FROM vw_Customer_Project_Invoices
+    FROM "vw_Customer_Project_Invoices"
     GROUP BY "ProjectNumber", "ProjectName"
 ),
 SupplierCosts AS (
     SELECT 
         "ProjectNumber",
         SUM("TotalPrice") AS "SupplierCostEGP"
-    FROM vw_Supplier_Project_Invoices
+    FROM "vw_Supplier_Project_Invoices"
     GROUP BY "ProjectNumber"
 )
 

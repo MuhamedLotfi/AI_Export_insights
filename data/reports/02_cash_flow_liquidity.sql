@@ -23,7 +23,7 @@ SELECT
     -- Financial KPIs
     ROUND((SUM(CASE WHEN "IsPaidInvoice" = true THEN "TotalAfterDiscountInvoice" ELSE 0 END) / NULLIF(SUM("TotalAfterDiscountInvoice"), 0)) * 100, 2) AS "Collection Rate (%)"
 
-FROM vw_Customer_Project_Invoices
+FROM "vw_Customer_Project_Invoices"
 WHERE "InvoiceDate" IS NOT NULL
 GROUP BY DATE_TRUNC('month', "InvoiceDate")
 ORDER BY "Financial Period" DESC;

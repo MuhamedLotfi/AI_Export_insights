@@ -26,7 +26,8 @@ class AIService:
         self,
         query: str,
         user_id: int,
-        conversation_id: Optional[str] = None
+        conversation_id: Optional[str] = None,
+        report_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Process a user query through the multi-agent pipeline
@@ -37,43 +38,96 @@ class AIService:
             conversation_id = f"session_{int(datetime.now().timestamp() * 1000)}"
             
         try:
-            # Bypass agent checks for now as requested by user
-            all_agents = self.auth_service.get_all_domain_agents()
-            user_agents = [a.get("code", "") for a in all_agents]
-            
-            # Route query to determine required domains
-            from backend.ai_agent.agents.thinking_agent import ThinkingAgent
-            thinking_agent = ThinkingAgent()
-            thinking_result = await thinking_agent.analyze(query, user_agents)
-            
-            # Validate access bypass
-            required_domains = thinking_result.get("required_domains", [])
-            
-            access_validation = {
-                "allowed_agents": required_domains if required_domains else user_agents,
-                "blocked_agents": [],
-                "has_access": True,
-                "partial_access": False
-            }
-            
-            # Process with allowed agents only
-            from backend.ai_agent.agents.processing_agent import ProcessingAgent
-            processing_agent = ProcessingAgent()
-            processing_result = await processing_agent.execute(
-                query=query,
-                thinking_result=thinking_result,
-                allowed_agents=access_validation["allowed_agents"]
-            )
-            
-            # Generate visualization if applicable
             from backend.ai_agent.agents.visualization_agent import VisualizationAgent
+            
+            # ── 1. If report_name is provided, execute SQL directly and skip agents ──
+            if report_name:
+                import os
+                try:
+                    # Construct path to the report
+                    report_path = os.path.join(
+                        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                        "data", "reports", f"{report_name}.sql"
+                    )
+                    
+                    if os.path.exists(report_path):
+                        with open(report_path, "r", encoding="utf-8") as f:
+                            sql_query = f.read()
+                            
+                        logger.info(f"Direct report execution for {report_name}")
+                        raw_data = self.adapter.execute_query(sql_query)
+                        
+                        # Mock thinking and processing results to feed into the pipeline
+                        thinking_result = {
+                            "intent": f"execute_report_{report_name}",
+                            "required_domains": ["direct_sql_execution"],
+                            "tool": "sql",
+                        }
+                        
+                        processing_result = {
+                            "data": raw_data,
+                            "row_count": len(raw_data),
+                            "generated_query": sql_query,
+                            "tool_used": "direct_sql",
+                            "success": True
+                        }
+                        
+                        access_validation = {
+                            "allowed_agents": ["direct_sql_execution"],
+                            "blocked_agents": [],
+                            "has_access": True,
+                            "partial_access": False
+                        }
+                        
+                    else:
+                        raise FileNotFoundError(f"Report {report_name}.sql not found at {report_path}")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to execute direct report {report_name}: {e}")
+                    return {
+                        "answer": f"Sorry, I could not generate the {report_name} report. Error: {str(e)}",
+                        "error": True,
+                        "metadata": {}
+                    }
+                    
+            # ── 2. Otherwise route query via normal agents ──
+            else:
+                # Bypass agent checks for now as requested by user
+                all_agents = self.auth_service.get_all_domain_agents()
+                user_agents = [a.get("code", "") for a in all_agents]
+                
+                # Route query to determine required domains
+                from backend.ai_agent.agents.thinking_agent import ThinkingAgent
+                thinking_agent = ThinkingAgent()
+                thinking_result = await thinking_agent.analyze(query, user_agents)
+                
+                # Validate access bypass
+                required_domains = thinking_result.get("required_domains", [])
+                
+                access_validation = {
+                    "allowed_agents": required_domains if required_domains else user_agents,
+                    "blocked_agents": [],
+                    "has_access": True,
+                    "partial_access": False
+                }
+                
+                # Process with allowed agents only
+                from backend.ai_agent.agents.processing_agent import ProcessingAgent
+                processing_agent = ProcessingAgent()
+                processing_result = await processing_agent.execute(
+                    query=query,
+                    thinking_result=thinking_result,
+                    allowed_agents=access_validation["allowed_agents"]
+                )
+                
+            # ── 3. Generate visualization and memory context for ALL requests ──
             viz_agent = VisualizationAgent()
             visualization = await viz_agent.generate(
                 query=query,
                 data=processing_result.get("data", [])
             )
-            
-            # ── Build memory context via MemoryManager ──
+        
+            # Build memory context via MemoryManager
             memory_ctx = {}
             if conversation_id:
                 try:
@@ -166,8 +220,12 @@ class AIService:
         if user_id not in self._conversation_history:
             self._conversation_history[user_id] = []
         
+        import uuid
+        message_id = str(uuid.uuid4())
+        
         conversation_entry = {
             "conversation_id": conversation_id,
+            "message_id": message_id,
             "query": query,
             "answer": response.get("answer", ""),
             "timestamp": datetime.now().isoformat()
@@ -180,6 +238,7 @@ class AIService:
             self.adapter.insert("conversations", {
                 "user_id": user_id,
                 "conversation_id": conversation_id,
+                "message_id": message_id,
                 "query": query,
                 "response": response.get("answer", ""),
                 "agents_used": response.get("agents_used", []),
@@ -190,8 +249,6 @@ class AIService:
                 "recommendations": response.get("recommendations", []),
             })
             
-            # Return the ID (or generate one if using DB logic above is async/complex)
-            message_id = conversation_id if conversation_id else f"msg_{datetime.now().timestamp()}"
             return message_id
 
         except Exception as e:
@@ -360,7 +417,9 @@ class AIService:
                 "data": conv.get("data", []),
                 "insights": conv.get("insights", []),
                 "recommendations": conv.get("recommendations", []),
-                "metadata": conv.get("metadata"),
+                "metadata": conv.get("metadata", {}),
+                "feedback": conv.get("feedback"),
+                "message_id": conv.get("message_id"),
             })
         
         return messages
@@ -408,6 +467,22 @@ class AIService:
                 "comment": comment,
                 "timestamp": datetime.now().isoformat()
             })
+            
+            # Update the feedback column directly on conversations
+            try:
+                from sqlalchemy import text
+                from backend.ai_agent.database_service import get_engine
+                engine = get_engine()
+                if engine:
+                    with engine.connect() as conn:
+                        conn.execute(
+                            text("UPDATE conversations SET feedback = :rating WHERE message_id = :msg_id OR (message_id IS NULL AND conversation_id = :msg_id)"),
+                            {"rating": rating, "msg_id": message_id}
+                        )
+                        conn.commit()
+            except Exception as e:
+                logger.warning(f"Failed to update conversation feedback field: {e}")
+                
             logger.info(f"Feedback stored for message {message_id}: {rating}")
 
             # ── Trigger preference learning from feedback ──

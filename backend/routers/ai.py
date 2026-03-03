@@ -15,6 +15,7 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     query: str
     conversation_id: Optional[str] = None
+    report_name: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -60,7 +61,8 @@ async def chat(
     result = await ai_service.process_query(
         query=request.query,
         user_id=current_user["id"],
-        conversation_id=request.conversation_id
+        conversation_id=request.conversation_id,
+        report_name=request.report_name
     )
     
     return ChatResponse(**result)
