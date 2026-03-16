@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
 from backend.routers.auth import get_current_user
+from backend.config import DISPLAY_CURRENCY
 
 router = APIRouter()
 
@@ -55,7 +56,7 @@ async def get_dashboard(current_user: dict = Depends(get_current_user)):
                 
             kpis.append(KPICard(
                 title="Total Sales",
-                value=f"${total_sales:,.2f}",
+                value=f"{total_sales:,.2f} {DISPLAY_CURRENCY}",
                 change=12.5,
                 change_type="increase",
                 icon="trending_up",

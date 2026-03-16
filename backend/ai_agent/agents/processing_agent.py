@@ -348,7 +348,12 @@ class ProcessingAgent:
                     toolkit = SQLDatabaseToolkit(db=db, llm=llm)
                     schema_info = ""
                     try:
-                        schema_info = db.get_table_info()
+                        raw_schema = db.get_table_info()
+                        # Quadruple-escape curly braces:
+                        # create_sql_agent calls prefix.format(dialect=..., top_k=...) which consumes one layer.
+                        # Then PromptTemplate.from_template(template) consumes the second layer.
+                        # Net result: {{{{ -> {{ -> {  (literal, safe)
+                        schema_info = raw_schema.replace("{", "{{{{").replace("}", "}}}}") 
                     except Exception as e:
                         logger.warning(f"[PROCESSING AGENT] Could not fetch schema info: {e}")
 
@@ -357,12 +362,29 @@ class ProcessingAgent:
                     try:
                         from backend.ai_agent.view_query_service import get_view_query_service
                         view_svc = get_view_query_service()
-                        few_shot_section = view_svc.build_few_shot_block(query, max_chars_per_report=800)
-                        if few_shot_section:
+                        raw_few_shot = view_svc.build_few_shot_block(query, max_chars_per_report=800)
+                        if raw_few_shot:
+                            # Same quadruple-escape so JSON in SQL examples doesn't crash the prompt formatter
+                            few_shot_section = raw_few_shot.replace("{", "{{{{").replace("}", "}}}}") 
                             matched_labels = [r[1] for r in view_svc.get_matching_reports(query, top_k=3)]
                             logger.info(f"[PROCESSING AGENT] 📋 Injected few-shot reports: {matched_labels}")
                     except Exception as e:
                         logger.warning(f"[PROCESSING AGENT] Could not build few-shot block: {e}")
+
+                    # Retrieve safety guard constraints if present
+                    safety = thinking_result.get("safety_guard", {}) if "thinking_result" in locals() else {}
+                    entity_filter = safety.get("entity_filter")
+                    safety_level = safety.get("safety_level", "SAFE")
+                    
+                    filter_instruction = ""
+                    if entity_filter:
+                        filter_instruction = f"""
+CRITICAL RULE — FILTER REQUIRED:
+The user is specifically asking about "{entity_filter}".
+You MUST include a WHERE clause filtering by this entity using ILIKE or similar matching.
+Example: WHERE "EntityName" ILIKE '%{entity_filter}%' OR "ClientName" ILIKE '%{entity_filter}%' 
+If you fail to include this filter, you will scan too much data and fail.
+"""
 
                     sql_agent_prefix = f"""You are an agent designed to interact with a PostgreSQL database.
 
@@ -385,8 +407,11 @@ INCORRECT: SELECT InvoiceNumber FROM vw_Customer_Project_Invoices  -- WILL FAIL!
 IMPORTANT GUIDELINES FOR SPEED:
 1. DO NOT use sql_db_list_tables. You already know which tables/views exist.
 2. DO NOT use sql_db_schema unless absolutely necessary.
-3. Write your SELECT query immediately using sql_db_query.
-4. Always LIMIT results to 50 unless asked otherwise."""
+3. Write your SELECT query immediately using sql_db_query. Execute it once and return the result.
+4. DO NOT use sql_db_query_checker. Skip the checker and run the query directly.
+5. Always LIMIT results to 50 unless asked otherwise.
+6. Do NOT repeat the same action or tool call more than once.
+{filter_instruction}"""
 
                     agent_executor = create_sql_agent(
                         llm=llm,
@@ -394,7 +419,8 @@ IMPORTANT GUIDELINES FOR SPEED:
                         verbose=True,
                         agent_type="zero-shot-react-description",
                         handle_parsing_errors=True,
-                        max_iterations=8,
+                        max_iterations=5,          # small model loops if more
+                        max_execution_time=90,     # hard wall: 90 seconds
                         prefix=sql_agent_prefix
                     )
 
@@ -402,7 +428,15 @@ IMPORTANT GUIDELINES FOR SPEED:
                     if domain_context.get("target_views"):
                         full_query += f" (Prefer views: {', '.join(domain_context['target_views'])})"
 
-                    response = await agent_executor.ainvoke(full_query)
+                    import asyncio
+                    try:
+                        response = await asyncio.wait_for(
+                            agent_executor.ainvoke(full_query),
+                            timeout=120  # absolute hard cap at 2 minutes
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error("[PROCESSING AGENT] SQL Agent timed out after 120s")
+                        raise RuntimeError("SQL Agent exceeded the 2-minute time limit. Please rephrase the query to be more specific.")
                     result_text = response.get("output", "")
 
                     return {
@@ -413,7 +447,9 @@ IMPORTANT GUIDELINES FOR SPEED:
                     }
 
              except Exception as e:
+                import traceback
                 logger.error(f"[PROCESSING AGENT] SQL Agent error: {e}")
+                logger.error(f"[PROCESSING AGENT] Traceback: {traceback.format_exc()}")
 
         
         # ... Rest of original implementation for JSON/Fallback ...
@@ -503,18 +539,33 @@ IMPORTANT GUIDELINES FOR SPEED:
         else:
             sql = f"SELECT * FROM {qt} LIMIT {limit}"
         
-        logger.info(f"[PROCESSING AGENT] Generated SQL: {sql}")
+        logger.info(f"[PROCESSING AGENT] Generated Fallback SQL: {sql}")
         
-        # Execute query on data adapter
-        data = self.adapter.execute_query(sql)
+        # ── PHASE 5: AST SQL SAFETY GUARD ──
+        from backend.ai_agent.sql_safety_guard import SqlSafetyGuard
+        guard_result = SqlSafetyGuard.validate_and_patch(sql, max_limit=limit)
         
-        # If no SQL results, try direct table access
+        if not guard_result["safe"]:
+            logger.warning(f"[PROCESSING AGENT] SQL blocked by AST Guard: {guard_result['error']}")
+            return {
+                "data": [],
+                "query": sql,
+                "error": guard_result["error"]
+            }
+            
+        safe_sql = guard_result["sql"]
+        logger.info(f"[PROCESSING AGENT] Executing Patched AST SQL: {safe_sql}")
+        
+        # Execute safeguarded query on data adapter
+        data = self.adapter.execute_query(safe_sql)
+        
+        # If no SQL results, try direct table access (read-only, naturally safe)
         if not data:
             data = self.adapter.get_all(primary_table)[:limit]
         
         return {
             "data": data,
-            "query": sql
+            "query": safe_sql
         }
     
     async def _extract_subtable_data(

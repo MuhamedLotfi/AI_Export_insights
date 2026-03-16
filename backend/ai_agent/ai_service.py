@@ -79,6 +79,18 @@ class AIService:
                             "partial_access": False
                         }
                         
+                        # ── Generate visualization for direct reports ──
+                        visualization = await VisualizationAgent().generate(
+                            query=query or report_name,
+                            data=raw_data
+                        )
+
+                        # Provide a rudimentary final_response here since we skip the coordinator
+                        final_response = {
+                            "answer": f"تم جلب بيانات التقرير بنجاح.",
+                            "metadata": {}
+                        }
+                        
                     else:
                         raise FileNotFoundError(f"Report {report_name}.sql not found at {report_path}")
                         
@@ -111,56 +123,83 @@ class AIService:
                     "partial_access": False
                 }
                 
-                # Process with allowed agents only
-                from backend.ai_agent.agents.processing_agent import ProcessingAgent
-                processing_agent = ProcessingAgent()
-                processing_result = await processing_agent.execute(
-                    query=query,
-                    thinking_result=thinking_result,
-                    allowed_agents=access_validation["allowed_agents"]
-                )
+                # --- 2.5. Query Safety Check ---
+                from backend.ai_agent.query_safety_guard import QuerySafetyGuard
+                safety_result = QuerySafetyGuard.check(query, thinking_result)
                 
-            # ── 3. Generate visualization and memory context for ALL requests ──
-            viz_agent = VisualizationAgent()
-            visualization = await viz_agent.generate(
-                query=query,
-                data=processing_result.get("data", [])
-            )
-        
-            # Build memory context via MemoryManager
-            memory_ctx = {}
-            if conversation_id:
-                try:
-                    from backend.ai_agent.memory_manager import get_memory_manager
-                    memory = get_memory_manager()
-                    memory_ctx = memory.build_memory_context(
-                        query=query,
-                        session_id=conversation_id,
-                        user_id=user_id,
-                    )
-                except Exception as e:
-                    logger.warning(f"MemoryManager unavailable, falling back: {e}")
-                    # Fallback to raw history
-                    memory_ctx = {
-                        "conversation_history": self.get_session_messages(user_id, conversation_id),
-                        "session_summary": "",
-                        "cross_session_context": "",
-                        "user_preferences": "",
+                if safety_result["safety_level"] == "BLOCK":
+                    # Short-circuit everything and return a clarification response
+                    logger.warning(f"Query blocked by SafetyGuard: {query}")
+                    final_response = {
+                        "answer": f"{safety_result['block_reason']}\n\nمقترح: {safety_result['suggested_query']}",
+                        "needs_clarification": True,
+                        "suggested_query": safety_result["suggested_query"],
+                        "data": [],
+                        "error": False,  # Technically not a system error, just a guard block
+                        "metadata": {}
                     }
-
-            # Coordinate final response
-            from backend.ai_agent.agents.coordinator_agent import CoordinatorAgent
-            coordinator = CoordinatorAgent()
-            final_response = await coordinator.format_response(
-                query=query,
-                thinking_result=thinking_result,
-                processing_result=processing_result,
-                visualization=visualization,
-                memory_context=memory_ctx
-            )
+                    processing_result = {"data": []}
+                    visualization = {}
+                else:
+                    # Append safety result to thinking context so processing/SQL agents can use it
+                    thinking_result["safety_guard"] = safety_result
+                    
+                    # Process with allowed agents only
+                    from backend.ai_agent.agents.processing_agent import ProcessingAgent
+                    processing_agent = ProcessingAgent()
+                    processing_result = await processing_agent.execute(
+                        query=query,
+                        thinking_result=thinking_result,
+                        allowed_agents=access_validation["allowed_agents"]
+                    )
+                    
+                    # ── 3. Generate visualization and memory context for ALL requests ──
+                    viz_agent = VisualizationAgent()
+                    visualization = await viz_agent.generate(
+                        query=query,
+                        data=processing_result.get("data", []),
+                        tool_used=processing_result.get("tool_used", "sql")
+                    )
+                    
+                    # Build memory context via MemoryManager
+                    memory_ctx = {}
+                    if conversation_id:
+                        try:
+                            from backend.ai_agent.memory_manager import get_memory_manager
+                            memory = get_memory_manager()
+                            memory_ctx = memory.build_memory_context(
+                                query=query,
+                                session_id=conversation_id,
+                                user_id=user_id,
+                            )
+                        except Exception as e:
+                            logger.warning(f"MemoryManager unavailable, falling back: {e}")
+                            memory_ctx = {
+                                "conversation_history": self.get_session_messages(user_id, conversation_id),
+                                "session_summary": "",
+                                "cross_session_context": "",
+                                "user_preferences": "",
+                            }
+                    
+                    # Coordinate final response
+                    from backend.ai_agent.agents.coordinator_agent import CoordinatorAgent
+                    coordinator = CoordinatorAgent()
+                    final_response = await coordinator.format_response(
+                        query=query,
+                        thinking_result=thinking_result,
+                        processing_result=processing_result,
+                        visualization=visualization,
+                        memory_context=memory_ctx
+                    )
             
             # Enrich response for storage and return
-            final_response["data"] = processing_result.get("data", [])
+            # Strip internal metadata keys (starting with _) from rows before sending to frontend
+            clean_data = []
+            for row in processing_result.get("data", []):
+                clean_row = {k: v for k, v in row.items() if not k.startswith("_")}
+                clean_data.append(clean_row)
+            
+            final_response["data"] = clean_data
             final_response["chart_data"] = visualization.get("chart_data")
             final_response["agents_used"] = access_validation["allowed_agents"]
             final_response["agents_blocked"] = access_validation.get("blocked_agents", [])
@@ -178,8 +217,11 @@ class AIService:
                 "timestamp": datetime.now().isoformat()
             })
 
+            # Determine fallback query for empty shortcut submissions
+            stored_query = query if query and query.strip() else (report_name or "Report Query")
+
             # Store in conversation history and get ID
-            message_id = self._store_conversation(user_id, conversation_id, query, final_response)
+            message_id = self._store_conversation(user_id, conversation_id, stored_query, final_response)
             if message_id:
                 final_response["metadata"]["message_id"] = message_id
 
@@ -189,7 +231,7 @@ class AIService:
                     from backend.ai_agent.memory_manager import get_memory_manager
                     memory = get_memory_manager()
                     memory.trigger_memory_update(
-                        query=query,
+                        query=stored_query,
                         response_text=final_response.get("answer", ""),
                         session_id=conversation_id,
                         user_id=user_id,

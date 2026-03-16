@@ -34,3 +34,4 @@ numpy==1.26.3
 
 # Utilities
 python-dotenv==1.0.0
+sqlglot>=29.0.1

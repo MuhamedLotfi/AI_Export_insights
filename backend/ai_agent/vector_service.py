@@ -45,26 +45,35 @@ class VectorService:
             # Load local model if provider is huggingface
             if self.provider == "huggingface":
                 try:
+                    import torch
                     from sentence_transformers import SentenceTransformer
-                    logger.info(f"Loading local embedding model: {self.embedding_model}...")
+                    
+                    # Prefer CUDA if available, else CPU
+                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                    logger.info(f"Loading local embedding model: {self.embedding_model} on device={device}...")
+                    
                     # Try loading from local cache first (skip HuggingFace HTTP checks)
                     try:
                         self._model_instance = SentenceTransformer(
                             self.embedding_model,
+                            device=device,
                             local_files_only=True
                         )
-                        logger.info("Local model loaded from cache (no network).")
+                        logger.info(f"Local model loaded from cache on {device} (no network).")
                     except Exception:
                         # First-time download: model not cached yet
                         logger.info("Model not in local cache, downloading from HuggingFace...")
-                        self._model_instance = SentenceTransformer(self.embedding_model)
-                        logger.info("Model downloaded and loaded successfully.")
-                except ImportError:
-                    logger.warning(f"sentence_transformers not installed. Falling back to Ollama provider.")
-                    self.provider = "ollama"
+                        self._model_instance = SentenceTransformer(
+                            self.embedding_model,
+                            device=device
+                        )
+                        logger.info(f"Model downloaded and loaded successfully on {device}.")
+                except ImportError as ie:
+                    logger.error(f"sentence_transformers or torch not installed: {ie}.")
+                    raise ie
                 except Exception as e:
-                    logger.warning(f"Failed to load local model {self.embedding_model}: {e}. Falling back to Ollama.")
-                    self.provider = "ollama"
+                    logger.error(f"Failed to load local model {self.embedding_model}: {e}.")
+                    raise e
 
             from backend.ai_agent.database_service import get_engine
             self._engine = get_engine()
@@ -153,16 +162,23 @@ class VectorService:
     def _generate_embedding(self, text_content: str) -> Optional[List[float]]:
         """Generate embedding vector for a single text"""
         try:
-            if self.provider == "huggingface" and self._model_instance:
-                embedding = self._model_instance.encode(text_content)
-                return embedding.tolist()
-            else:
+            if self.provider == "huggingface":
+                if self._model_instance:
+                    embedding = self._model_instance.encode(text_content)
+                    return embedding.tolist()
+                else:
+                    logger.error("HuggingFace provider selected but model is not loaded")
+                    return None
+            elif self.provider == "ollama":
                 import ollama
                 response = ollama.embeddings(
                     model=self.embedding_model,
                     prompt=text_content
                 )
                 return response.get("embedding")
+            else:
+                logger.error(f"Unknown provider: {self.provider}")
+                return None
         except Exception as e:
             logger.error(f"Embedding generation error ({self.provider}): {e}")
             return None
@@ -178,19 +194,26 @@ class VectorService:
         all_embeddings = []
 
         try:
-            if self.provider == "huggingface" and self._model_instance:
-                # Process in batches for memory safety
-                for i in range(0, len(texts), batch_size):
-                    batch = texts[i:i + batch_size]
-                    batch_embeddings = self._model_instance.encode(batch, show_progress_bar=False)
-                    all_embeddings.extend([emb.tolist() for emb in batch_embeddings])
-                return all_embeddings
-            else:
+            if self.provider == "huggingface":
+                if self._model_instance:
+                    # Process in batches for memory safety
+                    for i in range(0, len(texts), batch_size):
+                        batch = texts[i:i + batch_size]
+                        batch_embeddings = self._model_instance.encode(batch, show_progress_bar=False)
+                        all_embeddings.extend([emb.tolist() for emb in batch_embeddings])
+                    return all_embeddings
+                else:
+                    logger.error("HuggingFace provider selected but model is not loaded")
+                    return [None] * len(texts)
+            elif self.provider == "ollama":
                 # Fallback: generate one at a time for Ollama
                 for text in texts:
                     emb = self._generate_embedding(text)
                     all_embeddings.append(emb)
                 return all_embeddings
+            else:
+                logger.error(f"Unknown provider: {self.provider}")
+                return [None] * len(texts)
         except Exception as e:
             logger.error(f"Batch embedding error: {e}")
             return [None] * len(texts)

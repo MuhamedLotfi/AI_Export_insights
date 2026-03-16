@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../controllers/ai_assistant_controller.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../models/chat_message.dart';
 import '../../../routes/app_routes.dart';
+import '../../../widgets/syncfusion_chart_widget.dart';
 
 class AiAssistantView extends GetView<AiAssistantController> {
   const AiAssistantView({Key? key}) : super(key: key);
@@ -601,6 +601,7 @@ class AiAssistantView extends GetView<AiAssistantController> {
                   ),
                   child: Text(
                     message.query,
+                    textDirection: TextDirection.rtl,
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),
@@ -692,7 +693,11 @@ class AiAssistantView extends GetView<AiAssistantController> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: message.hasError ? AppTheme.errorColor.withOpacity(0.1) : AppTheme.darkCard,
+                    color: message.hasError 
+                        ? AppTheme.errorColor.withOpacity(0.1) 
+                        : message.needsClarification
+                            ? Colors.orange.withOpacity(0.1)
+                            : AppTheme.darkCard,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(4),
                       topRight: Radius.circular(20),
@@ -702,7 +707,9 @@ class AiAssistantView extends GetView<AiAssistantController> {
                     border: Border.all(
                       color: message.hasError 
                           ? AppTheme.errorColor.withOpacity(0.3) 
-                          : Colors.white.withOpacity(0.05),
+                          : message.needsClarification
+                              ? Colors.orange.withOpacity(0.3)
+                              : Colors.white.withOpacity(0.05),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -713,7 +720,7 @@ class AiAssistantView extends GetView<AiAssistantController> {
                     ],
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       // Header: Agents Used
                       if (message.agentsUsed.isNotEmpty)
@@ -751,40 +758,85 @@ class AiAssistantView extends GetView<AiAssistantController> {
                         ),
                       
                       // Answer Content
-                      MarkdownBody(
-                        data: message.answer,
-                        selectable: true,
-                        styleSheet: MarkdownStyleSheet(
-                          p: const TextStyle(color: Colors.white, height: 1.5, fontSize: 15),
-                          h1: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
-                          h2: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
-                          h3: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                          strong: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.w600),
-                          em: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-                          listBullet: const TextStyle(color: AppTheme.secondaryColor),
-                          blockquote: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-                          blockquoteDecoration: BoxDecoration(
-                            border: Border(left: BorderSide(color: AppTheme.secondaryColor, width: 4)),
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          code: TextStyle(
-                            backgroundColor: Colors.black.withOpacity(0.3),
-                            color: AppTheme.accentColor,
-                            fontFamily: 'monospace',
-                            fontSize: 13,
-                          ),
-                          codeblockDecoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      Directionality(
+                        textDirection: TextDirection.rtl,
+                        child: MarkdownBody(
+                          data: message.answer,
+                          selectable: true,
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(color: Colors.white, height: 1.5, fontSize: 15),
+                            h1: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
+                            h2: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                            h3: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                            strong: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.w600),
+                            em: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                            listBullet: const TextStyle(color: AppTheme.secondaryColor),
+                            blockquote: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                            blockquoteDecoration: BoxDecoration(
+                              border: const Border(right: BorderSide(color: AppTheme.secondaryColor, width: 4)),
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            code: TextStyle(
+                              backgroundColor: Colors.black.withOpacity(0.3),
+                              color: AppTheme.accentColor,
+                              fontFamily: 'monospace',
+                              fontSize: 13,
+                            ),
+                            codeblockDecoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            ),
                           ),
                         ),
                       ),
                       
                       // Chart
                       if (message.chartData != null)
-                        _buildChart(message.chartData!),
+                        SyncfusionChartWidget(chartData: message.chartData!),
+                        
+                      // Clarification Suggestion Chip
+                      if (message.needsClarification && message.suggestedQuery != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: InkWell(
+                            onTap: () {
+                              controller.queryController.text = message.suggestedQuery!;
+                              // Scroll down or focus keyboard automatically if desired
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.lightbulb_outline, color: Colors.orangeAccent, size: 18),
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: Text(
+                                      message.suggestedQuery!,
+                                      style: const TextStyle(
+                                        color: Colors.orangeAccent,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.edit, color: Colors.orangeAccent, size: 14),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       
                       // Insights and Data Preview removed as per requirement
 
@@ -945,113 +997,6 @@ class AiAssistantView extends GetView<AiAssistantController> {
 
   String _formatTime(DateTime time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-  }
-  
-  Widget _buildChart(Map<String, dynamic> chartData) {
-    final type = chartData['type'] as String? ?? 'bar';
-    final labels = List<String>.from(chartData['labels'] ?? []);
-    final datasets = chartData['datasets'] as List?;
-    
-    if (labels.isEmpty || datasets == null || datasets.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    final values = List<double>.from(
-      (datasets[0]['data'] as List).map((e) => (e as num).toDouble())
-    );
-    
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      height: 250,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.darkSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: type == 'pie'
-          ? _buildPieChart(labels, values)
-          : _buildBarChartWidget(labels, values),
-    );
-  }
-  
-  Widget _buildPieChart(List<String> labels, List<double> values) {
-    final colors = [
-      AppTheme.primaryColor,
-      AppTheme.secondaryColor,
-      AppTheme.accentColor,
-      AppTheme.warningColor,
-      const Color(0xFFEC4899),
-      const Color(0xFF3B82F6),
-    ];
-    
-    return PieChart(
-      PieChartData(
-        sectionsSpace: 2,
-        centerSpaceRadius: 50,
-        sections: List.generate(values.length.clamp(0, 6), (index) {
-          final total = values.reduce((a, b) => a + b);
-          final percentage = (values[index] / total * 100).toStringAsFixed(1);
-          
-          return PieChartSectionData(
-            value: values[index],
-            title: '$percentage%',
-            titleStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-            color: colors[index % colors.length],
-            radius: 60,
-          );
-        }),
-      ),
-    );
-  }
-  
-  Widget _buildBarChartWidget(List<String> labels, List<double> values) {
-    return BarChart(
-      BarChartData(
-        barTouchData: BarTouchData(enabled: true),
-        titlesData: FlTitlesData(
-          show: true,
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index < 0 || index >= labels.length) return const SizedBox();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    labels[index].length > 6 ? '${labels[index].substring(0, 6)}...' : labels[index],
-                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9),
-                  ),
-                );
-              },
-            ),
-          ),
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: false),
-        barGroups: List.generate(values.length.clamp(0, 10), (index) {
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: values[index],
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                width: 16,
-              ),
-            ],
-          );
-        }),
-      ),
-    );
   }
   
   Widget _buildInsights(List<Map<String, dynamic>> insights) {
@@ -1303,29 +1248,36 @@ class AiAssistantView extends GetView<AiAssistantController> {
                     return const SizedBox.shrink();
                   }
                   
+                  final bool isDisabled = controller.isProcessing.value;
+                  
                   return Container(
                     decoration: BoxDecoration(
-                      gradient: controller.isRecording.value
-                          ? LinearGradient(colors: [Colors.red, Colors.red.shade700])
-                          : LinearGradient(colors: [
-                              AppTheme.primaryColor.withOpacity(0.3), 
-                              AppTheme.secondaryColor.withOpacity(0.3)
-                            ]),
+                      gradient: isDisabled
+                          ? null
+                          : controller.isRecording.value
+                              ? LinearGradient(colors: [Colors.red, Colors.red.shade700])
+                              : LinearGradient(colors: [
+                                  AppTheme.primaryColor.withOpacity(0.3), 
+                                  AppTheme.secondaryColor.withOpacity(0.3)
+                                ]),
+                      color: isDisabled ? Colors.grey.shade800 : null,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: controller.isRecording.value 
-                            ? Colors.red 
-                            : AppTheme.primaryColor.withOpacity(0.5),
+                        color: isDisabled 
+                            ? Colors.grey 
+                            : controller.isRecording.value 
+                                ? Colors.red 
+                                : AppTheme.primaryColor.withOpacity(0.5),
                         width: 2,
                       ),
                     ),
                     child: IconButton(
-                      onPressed: controller.toggleSpeechRecognition,
+                      onPressed: isDisabled ? null : controller.toggleSpeechRecognition,
                       icon: Icon(
                         controller.isRecording.value ? Icons.mic : Icons.mic_none,
-                        color: Colors.white,
+                        color: isDisabled ? Colors.grey : Colors.white,
                       ),
-                      tooltip: controller.isRecording.value ? 'Stop Recording' : 'Start Recording',
+                      tooltip: isDisabled ? 'Wait for response' : (controller.isRecording.value ? 'Stop Recording' : 'Start Recording'),
                     ),
                   );
                 }),

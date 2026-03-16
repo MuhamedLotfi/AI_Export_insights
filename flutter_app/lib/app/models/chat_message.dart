@@ -14,6 +14,8 @@ class ChatMessage {
   final Map<String, dynamic>? metadata;
   final String? messageId;
   final String? feedback; // 'positive' or 'negative'
+  final bool needsClarification;
+  final String? suggestedQuery;
   
   ChatMessage({
     required this.query,
@@ -31,6 +33,8 @@ class ChatMessage {
     this.metadata,
     this.messageId,
     this.feedback,
+    this.needsClarification = false,
+    this.suggestedQuery,
   });
   
   factory ChatMessage.fromApiResponse(Map<String, dynamic> json, String query) {
@@ -49,6 +53,8 @@ class ChatMessage {
       hasError: json['error'] ?? false,
       metadata: json['metadata'],
       messageId: json['metadata']?['message_id'],
+      needsClarification: json['needs_clarification'] ?? false,
+      suggestedQuery: json['suggested_query'],
     );
   }
   
@@ -83,6 +89,8 @@ class ChatMessage {
       metadata: json['metadata'],
       messageId: json['message_id'] ?? json['metadata']?['message_id'],
       feedback: json['feedback'],
+      needsClarification: json['needs_clarification'] ?? false,
+      suggestedQuery: json['suggested_query'],
     );
   }
 }

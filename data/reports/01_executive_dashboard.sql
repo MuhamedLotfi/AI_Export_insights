@@ -12,6 +12,9 @@ SELECT
     "EntityAR" AS "الجهة / الشركة",
     COALESCE("DepartmentNameEN", 'Unassigned') AS "Responsible Department",
     
+    -- Date Context
+    MAX("InvoiceDate") AS "Latest Invoice Date",
+    
     -- Operational Metrics
     COUNT(DISTINCT "ProjectNumber") AS "Active Projects (Operations)",
     COUNT(DISTINCT "InvoiceNumber") AS "Invoices Issued",
@@ -30,4 +33,4 @@ SELECT
 
 FROM "vw_Customer_Project_Invoices"
 GROUP BY "EntityName", "EntityAR", "DepartmentNameEN"
-ORDER BY "Total Invoiced Revenue (EGP)" DESC NULLS LAST;
+ORDER BY "Latest Invoice Date" DESC NULLS LAST;

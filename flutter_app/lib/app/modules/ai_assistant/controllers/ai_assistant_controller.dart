@@ -359,7 +359,7 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
       );
       
       if (response.statusCode == 200) {
-        final chatResponse = ChatMessage.fromApiResponse(response.data, query);
+        final chatResponse = ChatMessage.fromApiResponse(response.data, query.isNotEmpty ? query : (reportName ?? ''));
         messages.add(chatResponse);
         
         // Update session ID if returned from backend
@@ -373,10 +373,19 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
           lastThinkingTrace.value = chatResponse.thinkingTrace;
         }
         
-        // Refresh history to show the new conversation
+        // Check if we need to update the local 'New Chat' title immediately for better UX
+        if (sessionHistory.isNotEmpty && sessionHistory.first['title'] == 'New Chat') {
+           final firstMessageContent = query.isNotEmpty ? query : (reportName ?? 'Report Query');
+           sessionHistory.first['title'] = firstMessageContent.length > 30 
+              ? '${firstMessageContent.substring(0, 30)}...' 
+              : firstMessageContent;
+           sessionHistory.refresh(); 
+        }
+
+        // Refresh history to show the new conversation from server
         _loadSessionHistory();
         
-        _logger.info('Query processed: $query', source: 'AI');
+        _logger.info('Query processed: ${query.isNotEmpty ? query : reportName}', source: 'AI');
       } else {
         _addErrorMessage('Failed to process query. Please try again.');
       }
@@ -517,8 +526,15 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
         onStatus: (status) {
           _logger.info('Speech status: $status', source: 'AI');
           if (status == 'done' || status == 'notListening') {
+            final wasRecording = isRecording.value;
             isRecording.value = false;
             interimTranscript.value = '';
+            
+            // Auto submit when system stops listening naturally (e.g., pause)
+            // But only if we were actually recording to avoid duplicate sends
+            if (wasRecording && queryController.text.trim().isNotEmpty) {
+              sendQuery();
+            }
           }
         },
       );
@@ -563,10 +579,15 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
     }
     
     if (isRecording.value) {
-      // Stop recording
+      // Stop recording and send automatically if we have text
       _speech.stop();
       isRecording.value = false;
       interimTranscript.value = '';
+      
+      // Auto-submit voice query to AI
+      if (queryController.text.trim().isNotEmpty) {
+        sendQuery();
+      }
     } else {
       // Start recording
       isRecording.value = true;
@@ -577,6 +598,11 @@ class AiAssistantController extends GetxController with GetSingleTickerProviderS
             queryController.text = result.recognizedWords;
             interimTranscript.value = '';
             _logger.info('Final transcript: ${result.recognizedWords}', source: 'AI');
+            
+            // Auto submit when hardware dictation physically stops the final result
+            if (!isRecording.value && queryController.text.trim().isNotEmpty) {
+              sendQuery();
+            }
           } else {
             // Interim result — show live preview
             interimTranscript.value = result.recognizedWords;

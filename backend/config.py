@@ -55,7 +55,7 @@ VECTOR_CONFIG = {
 AI_CONFIG = {
     "model_provider": os.getenv("MODEL_PROVIDER", "ollama"),  # "ollama" or "openai"
     "ollama_base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-    "ollama_model": os.getenv("OLLAMA_MODEL", "gemma3:latest"),
+    "ollama_model": os.getenv("OLLAMA_MODEL", "gemma3:latest"),#"qwen3.5:4b"#"gemma3:latest"
     "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
     "openai_model": os.getenv("OPENAI_MODEL", "gpt-4"),
     "ollama_options": {
@@ -67,6 +67,9 @@ AI_CONFIG = {
     # Output language (multilingual embedding model handles Arabic natively)
     "output_language": os.getenv("OUTPUT_LANGUAGE", "ar"),  # "ar" for Arabic, "en" for English
 }
+
+# Display / Formatting Configuration
+DISPLAY_CURRENCY = os.getenv("DISPLAY_CURRENCY", "EGP")  # Currency symbol used in all reports and responses
 
 # LangGraph Configuration
 LANGGRAPH_CONFIG = {
